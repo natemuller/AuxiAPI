@@ -8,7 +8,7 @@ namespace AuxiAPI.src.Repositories
 {
     public interface ICondominioRepository
     {
-        List<Condominio> LerJson();
+        List<Condominio> LerTodos();
         Condominio? ObterPorId(int id);
     }
 }

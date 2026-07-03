@@ -11,12 +11,10 @@ using Microsoft.EntityFrameworkCore;
 namespace AuxiAPI.src.Repositories
 {
     public class CondominioRepository(CondominiosDbContext context): ICondominioRepository
-    {
-        private readonly string _caminhoJson = Path.Combine("Repositories", "Condominios.json");
-        
-        public List<Condominio> LerJson() 
+    {   
+        public List<Condominio> LerTodos() 
         {
-            return context.Condominios.AsNoTracking().ToList();
+            return [.. context.Condominios.AsNoTracking()];
         }
         public Condominio? ObterPorId(int id)
         {

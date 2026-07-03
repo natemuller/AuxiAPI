@@ -22,7 +22,7 @@ namespace AuxiAPI.src.Services
             if (query.NomeDoCondominio?.Length > 200)
                 throw new ArgumentException(MensagensDeErro.NomeTamanhoExcedido);
 
-            var condominios = repository.LerJson();
+            var condominios = repository.LerTodos();
 
             if (!string.IsNullOrEmpty(query.CodigoDoCondominio))
                 condominios = condominios.Where(c => c.CodigoDoCondominio == query.CodigoDoCondominio).ToList();
