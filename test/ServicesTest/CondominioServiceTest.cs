@@ -1,215 +1,155 @@
-using System.Collections.Generic;
+using AuxiAPI.src.Common;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Entities;
 using AuxiAPI.src.Repositories;
 using AuxiAPI.src.Services;
+using Moq;
 
-namespace ServicesTest
+namespace AuxiAPI.Tests.ServicesTest;
+
+public class CondominioServiceTest
 {
-    public class CondominioServiceTest
+    [Fact]
+    public async Task ListarCondominiosAsync_DeveChamarRepositoryListarAsync()
     {
-        [Fact]
-        public void ListarCondominios_QuandoConsultaVazia_DeveRetornarTodosOsCondominios()
+        var repository = new Mock<ICondominioRepository>();
+        var condominio = CreateCondominio();
+        var query = new VisualizarCondominioQuery();
+
+        repository.Setup(x => x.ListarAsync(query)).ReturnsAsync(new List<Condominio> { condominio });
+
+        var service = new CondominioService(repository.Object);
+        var resultado = await service.ListarCondominiosAsync(query);
+
+        repository.Verify(x => x.ListarAsync(query), Times.Once);
+        var dto = Assert.Single(resultado);
+        Assert.Equal(condominio.CodigoDoCondominio, dto.CodigoDoCondominio);
+        Assert.Equal(condominio.NomeDoCondominio, dto.NomeDoCondominio);
+    }
+
+    [Fact]
+    public async Task ListarCondominiosAsync_DeveMapearCondominioParaDtoCorretamente()
+    {
+        var repository = new Mock<ICondominioRepository>();
+        var condominio = CreateCondominio();
+        repository.Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>())).ReturnsAsync(new List<Condominio> { condominio });
+
+        var service = new CondominioService(repository.Object);
+        var resultado = await service.ListarCondominiosAsync(new VisualizarCondominioQuery());
+
+        var dto = Assert.Single(resultado);
+        Assert.Equal(condominio.CodigoDoCondominio, dto.CodigoDoCondominio);
+        Assert.Equal(condominio.CNPJDoCondominio, dto.CNPJDoCondominio);
+        Assert.Equal(condominio.NomeDoCondominio, dto.NomeDoCondominio);
+        Assert.Equal(condominio.Endereco, dto.Endereco);
+        Assert.Equal(condominio.NumeroDoEndereco, dto.NumeroDoEndereco);
+        Assert.Equal(condominio.EstadoDoEndereco, dto.EstadoDoEndereco);
+        Assert.Equal(condominio.CidadeDoEndereco, dto.CidadeDoEndereco);
+        Assert.Equal(condominio.BairroDoEndereco, dto.BairroDoEndereco);
+        Assert.Equal(condominio.CEPDoEndereco, dto.CEPDoEndereco);
+        Assert.Equal(condominio.NumeroDeTorres, dto.NumeroDeTorres);
+        Assert.Equal(condominio.NumeroDeUnidades, dto.NumeroDeUnidades);
+        Assert.Equal(condominio.Status, dto.Status);
+        Assert.Equal(condominio.DataInicial_Administracao, dto.DataInicial_Administracao);
+        Assert.Equal(condominio.DataFinal_Administracao, dto.DataFinal_Administracao);
+        Assert.Equal(condominio.NomeGerenteDeContas, dto.NomeGerenteDeContas);
+        Assert.Equal(condominio.NomeSindico, dto.NomeSindico);
+    }
+
+    [Fact]
+    public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoCodigoExcederLimite()
+    {
+        var repository = new Mock<ICondominioRepository>();
+        var service = new CondominioService(repository.Object);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
         {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
+            CodigoDoCondominio = new string('1', 16)
+        }));
 
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery());
+        Assert.Equal(MensagensDeErro.CodigoTamanhoExcedido, exception.Message);
+        repository.Verify(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()), Times.Never);
+    }
 
-            Assert.Equal(2, resultado.Count);
-            Assert.Equal("0001", resultado[0].CodigoDoCondominio);
-            Assert.Equal("12345678000199", resultado[0].CNPJDoCondominio);
-            Assert.Equal("01234567", resultado[0].CEPDoEndereco);
-        }
+    [Fact]
+    public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoCnpjExcederLimite()
+    {
+        var repository = new Mock<ICondominioRepository>();
+        var service = new CondominioService(repository.Object);
 
-        [Fact]
-        public void ListarCondominios_QuandoFiltroPorCodigo_ComportamentoAtual_DeveNaoEncontrarCondominio()
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
         {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
+            CNPJDoCondominio = "12.345.678/9012-3456"
+        }));
 
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery { CodigoDoCondominio = "1" });
+        Assert.Equal(MensagensDeErro.CnpjTamanhoExcedido, exception.Message);
+        repository.Verify(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()), Times.Never);
+    }
 
-            Assert.Empty(resultado);
-        }
+    [Fact]
+    public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoNomeExcederLimite()
+    {
+        var repository = new Mock<ICondominioRepository>();
+        var service = new CondominioService(repository.Object);
 
-        [Fact]
-        public void ListarCondominios_QuandoFiltroPorNome_DeveRetornarSomenteCondominioCorrespondente()
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
         {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
+            NomeDoCondominio = new string('n', 201)
+        }));
 
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery { NomeDoCondominio = "sol" });
+        Assert.Equal(MensagensDeErro.NomeTamanhoExcedido, exception.Message);
+        repository.Verify(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()), Times.Never);
+    }
 
-            var condominio = Assert.Single(resultado);
-            Assert.Equal("Condomínio Sol Nascente", condominio.NomeDoCondominio);
-            Assert.Equal("0010", condominio.CodigoDoCondominio);
-        }
+    [Fact]
+    public async Task ObterPorIdAsync_DeveRetornarDto_QuandoIdExistir()
+    {
+        var repository = new Mock<ICondominioRepository>();
+        var condominio = CreateCondominio();
+        repository.Setup(x => x.ObterPorIdAsync(1)).ReturnsAsync(condominio);
 
-        [Fact]
-        public void ListarCondominios_QuandoFiltroPorCnpjENome_DeveAplicarOsFiltrosEMapearDados()
+        var service = new CondominioService(repository.Object);
+        var resultado = await service.ObterPorIdAsync(1);
+
+        Assert.NotNull(resultado);
+        Assert.Equal(condominio.CodigoDoCondominio, resultado.CodigoDoCondominio);
+        Assert.Equal(condominio.NomeDoCondominio, resultado.NomeDoCondominio);
+        repository.Verify(x => x.ObterPorIdAsync(1), Times.Once);
+    }
+
+    [Fact]
+    public async Task ObterPorIdAsync_DeveLancarKeyNotFoundException_QuandoIdNaoExistir()
+    {
+        var repository = new Mock<ICondominioRepository>();
+        repository.Setup(x => x.ObterPorIdAsync(9999)).ReturnsAsync((Condominio?)null);
+
+        var service = new CondominioService(repository.Object);
+        var exception = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorIdAsync(9999));
+
+        Assert.Contains("9999", exception.Message);
+        repository.Verify(x => x.ObterPorIdAsync(9999), Times.Once);
+    }
+
+    private static Condominio CreateCondominio()
+    {
+        return new Condominio
         {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery
-            {
-                CNPJDoCondominio = "12.345.678/0001-99",
-                NomeDoCondominio = "aurora"
-            });
-
-            var condominio = Assert.Single(resultado);
-            Assert.Equal("12345678000199", condominio.CNPJDoCondominio);
-            Assert.Equal("01234567", condominio.CEPDoEndereco);
-            Assert.Equal("Residencial Aurora", condominio.NomeDoCondominio);
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoNenhumFiltroCombina_DeveRetornarListaVazia()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery { NomeDoCondominio = "inexistente" });
-
-            Assert.Empty(resultado);
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoFiltrosForemNulosOuVazios_DeveIgnorarFiltrosEListarTodos()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery
-            {
-                CodigoDoCondominio = null,
-                CNPJDoCondominio = null,
-                NomeDoCondominio = "   "
-            });
-
-            Assert.Equal(2, resultado.Count);
-            Assert.Contains(resultado, c => c.NomeDoCondominio == "Residencial Aurora");
-            Assert.Contains(resultado, c => c.NomeDoCondominio == "Condomínio Sol Nascente");
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoCnpjTemCaracteresEspeciais_DeveNormalizarNaComparacaoEMapeamento()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery { CNPJDoCondominio = " 12.345.678/0001-99 " });
-
-            var condominio = Assert.Single(resultado);
-            Assert.Equal("12345678000199", condominio.CNPJDoCondominio);
-            Assert.Equal("Residencial Aurora", condominio.NomeDoCondominio);
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoNomeForMaiusculo_DeveEncontrarPorBuscaCaseInsensitive()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery { NomeDoCondominio = "AURORA" });
-
-            var condominio = Assert.Single(resultado);
-            Assert.Equal("Residencial Aurora", condominio.NomeDoCondominio);
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoRepositorioEstiverVazio_DeveRetornarListaVazia()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(new List<Condominio>()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery());
-
-            Assert.Empty(resultado);
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoCepForInformadoComMascara_DeveNormalizarNaSaida()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery { NomeDoCondominio = "aurora" });
-
-            var condominio = Assert.Single(resultado);
-            Assert.Equal("01234567", condominio.CEPDoEndereco);
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoCodigoForInformadoComMenosDigitos_DeveManterComportamentoAtual()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(CriarCondominios()));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery { CodigoDoCondominio = "1" });
-
-            Assert.Empty(resultado);
-        }
-
-        [Fact]
-        public void ListarCondominios_QuandoDadosDoCondominioForemParcialmenteNulos_DeveMapearSemErro()
-        {
-            var service = new CondominioService(new FakeCondominioRepository(new List<Condominio>
-            {
-                new()
-                {
-                    CodigoDoCondominio = "2",
-                    NomeDoCondominio = "Residencial Teste"
-                }
-            }));
-
-            var resultado = service.ListarCondominios(new VisualizarCondominioQuery());
-
-            var condominio = Assert.Single(resultado);
-            Assert.Equal("0002", condominio.CodigoDoCondominio);
-            Assert.Equal(string.Empty, condominio.CNPJDoCondominio);
-            Assert.Equal(string.Empty, condominio.CEPDoEndereco);
-            Assert.Equal("Residencial Teste", condominio.NomeDoCondominio);
-        }
-
-        private static List<Condominio> CriarCondominios()
-        {
-            return new List<Condominio>
-            {
-                new()
-                {
-                    CodigoDoCondominio = "1",
-                    CNPJDoCondominio = "12.345.678/0001-99",
-                    NomeDoCondominio = "Residencial Aurora",
-                    Endereco = "Rua das Flores",
-                    NumeroDoEndereco = "100",
-                    EstadoDoEndereco = "SP",
-                    CidadeDoEndereco = "São Paulo",
-                    BairroDoEndereco = "Centro",
-                    CEPDoEndereco = "01234-567",
-                    NumeroDeTorres = 2,
-                    NumeroDeUnidades = 20,
-                    Status = "Ativo",
-                    DataInicial_Administracao = "2024-01-01",
-                    DataFinal_Administracao = "2024-12-31",
-                    NomeGerenteDeContas = "Maria Silva",
-                    NomeSindico = "João Pereira"
-                },
-                new()
-                {
-                    CodigoDoCondominio = "10",
-                    CNPJDoCondominio = "98.765.432/0001-10",
-                    NomeDoCondominio = "Condomínio Sol Nascente",
-                    Endereco = "Avenida Brasil",
-                    NumeroDoEndereco = "250",
-                    EstadoDoEndereco = "RJ",
-                    CidadeDoEndereco = "Rio de Janeiro",
-                    BairroDoEndereco = "Lapa",
-                    CEPDoEndereco = "20000-000",
-                    NumeroDeTorres = 4,
-                    NumeroDeUnidades = 40,
-                    Status = "Inativo",
-                    DataInicial_Administracao = "2023-01-01",
-                    DataFinal_Administracao = "2023-12-31",
-                    NomeGerenteDeContas = "Ana Costa",
-                    NomeSindico = "Carlos Mendes"
-                }
-            };
-        }
-
-        private sealed class FakeCondominioRepository(List<Condominio> condominios) : ICondominioRepository
-        {
-            public List<Condominio> LerJson() => condominios;
-        }
+            CodigoDoCondominio = "0001",
+            CNPJDoCondominio = "12345678000101",
+            NomeDoCondominio = "Residencial Brasil-Hexa",
+            Endereco = "Rua Teste",
+            NumeroDoEndereco = "123",
+            EstadoDoEndereco = "RS",
+            CidadeDoEndereco = "Porto Alegre",
+            BairroDoEndereco = "Centro",
+            CEPDoEndereco = "90000000",
+            NumeroDeTorres = 1,
+            NumeroDeUnidades = 10,
+            Status = "Ativo",
+            DataInicial_Administracao = "01/01/2024",
+            DataFinal_Administracao = string.Empty,
+            NomeGerenteDeContas = "Gerente",
+            NomeSindico = "Síndico"
+        };
     }
 }
