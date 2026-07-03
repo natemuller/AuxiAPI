@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AuxiAPI.WebApi.csproj" />
+  </Folder>
+  <Folder Name="/test/" />
+  <Folder Name="/test/ServicesTest/">
+    <Project Path="test/ServicesTest/AuxiAPI.Tests.csproj" />
+  </Folder>
+</Solution>
