@@ -1,24 +1,58 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AuxiAPI.src.Entities;
 using AuxiAPI.src.Contexts;
 using Microsoft.EntityFrameworkCore;
+using AuxiAPI.src.DTOs;
 
 namespace AuxiAPI.src.Repositories
 {
     public class CondominioRepository(CondominiosDbContext context): ICondominioRepository
     {   
-        public List<Condominio> LerTodos() 
+        public async Task<List<Condominio>> ListarAsync(VisualizarCondominioQuery filtro)
         {
-            return [.. context.Condominios.AsNoTracking()];
+            var query = context.Condominios
+                .AsNoTracking()
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(filtro.CodigoDoCondominio))
+            {
+                var codigo = filtro.CodigoDoCondominio.PadLeft(4, '0');
+
+                query = query.Where(c =>
+                    c.CodigoDoCondominio == codigo
+                );
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.CNPJDoCondominio))
+            {
+                var cnpj = new string(
+                filtro.CNPJDoCondominio
+                        .Where(char.IsDigit)
+                        .ToArray()
+                );
+
+                query = query.Where(c =>
+                    c.CNPJDoCondominio == cnpj
+                );
+            }
+
+            if (!string.IsNullOrWhiteSpace(filtro.NomeDoCondominio))
+            {
+                query = query.Where(c =>
+                    EF.Functions.ILike(
+                        c.NomeDoCondominio,
+                        $"%{filtro.NomeDoCondominio}%"
+                    )
+                );
+            }
+
+            return await query.ToListAsync();
         }
-        public Condominio? ObterPorId(int id)
+
+        public async Task<Condominio?> ObterPorIdAsync(int id)
         {
-            return context.Condominios
-            .AsNoTracking() 
-            .SingleOrDefault(c => c.Id == id);
+            return await context.Condominios
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id);
         }
     }
 }
