@@ -17,9 +17,4 @@
     <PackageReference Include="supabase-csharp" Version="0.16.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="10.2.3" />
   </ItemGroup>
-  <ItemGroup>
-      <None Update="Repositories\Condominios.json">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </None>
-    </ItemGroup>
 </Project>
