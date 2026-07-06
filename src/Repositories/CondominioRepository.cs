@@ -25,9 +25,7 @@ namespace AuxiAPI.src.Repositories
             if (!string.IsNullOrWhiteSpace(filtro.CNPJDoCondominio))
             {
                 var cnpj = new string(
-                filtro.CNPJDoCondominio
-                        .Where(char.IsDigit)
-                        .ToArray()
+                [.. filtro.CNPJDoCondominio.Where(char.IsDigit)]
                 );
 
                 query = query.Where(c =>
