@@ -25,9 +25,7 @@ namespace AuxiAPI.src.Repositories
             if (!string.IsNullOrWhiteSpace(filtro.CNPJDoCondominio))
             {
                 var cnpj = new string(
-                filtro.CNPJDoCondominio
-                        .Where(char.IsDigit)
-                        .ToArray()
+                [.. filtro.CNPJDoCondominio.Where(char.IsDigit)]
                 );
 
                 query = query.Where(c =>
@@ -37,10 +35,11 @@ namespace AuxiAPI.src.Repositories
 
             if (!string.IsNullOrWhiteSpace(filtro.NomeDoCondominio))
             {
+                var nome = filtro.NomeDoCondominio.Trim();
                 query = query.Where(c =>
                     EF.Functions.ILike(
                         c.NomeDoCondominio,
-                        $"%{filtro.NomeDoCondominio}%"
+                        $"%{nome}%"
                     )
                 );
             }
