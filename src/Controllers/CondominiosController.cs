@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Mvc;
 using AuxiAPI.src.Services;
 using AuxiAPI.src.DTOs;
+using Microsoft.AspNetCore.Authorization;
 
 namespace AuxiAPI.src.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class CondominiosController(CondominioService service) : ControllerBase
     {
         [HttpGet]
