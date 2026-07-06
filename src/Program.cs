@@ -1,3 +1,4 @@
+using AuxiAPI.src.Common.Cache;
 using AuxiAPI.src.Contexts;
 using AuxiAPI.src.Middlewares;
 using Microsoft.AspNetCore.Mvc;
@@ -36,6 +37,8 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<ICacheService, MemoryCacheService>();
 builder.Services.AddResponseCaching();
 
 var app = builder.Build();

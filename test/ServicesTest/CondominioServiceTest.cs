@@ -4,6 +4,8 @@ using AuxiAPI.src.Entities;
 using AuxiAPI.src.Repositories;
 using AuxiAPI.src.Services;
 using Moq;
+using AuxiAPI.src.Common.Cache;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace AuxiAPI.Tests.ServicesTest;
 
@@ -18,7 +20,7 @@ public class CondominioServiceTest
 
         repository.Setup(x => x.ListarAsync(query)).ReturnsAsync(new List<Condominio> { condominio });
 
-        var service = new CondominioService(repository.Object);
+        var service = CriarService(repository.Object);
         var resultado = await service.ListarCondominiosAsync(query);
 
         repository.Verify(x => x.ListarAsync(query), Times.Once);
@@ -34,7 +36,7 @@ public class CondominioServiceTest
         var condominio = CreateCondominio();
         repository.Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>())).ReturnsAsync(new List<Condominio> { condominio });
 
-        var service = new CondominioService(repository.Object);
+        var service = CriarService(repository.Object);
         var resultado = await service.ListarCondominiosAsync(new VisualizarCondominioQuery());
 
         var dto = Assert.Single(resultado);
@@ -60,7 +62,7 @@ public class CondominioServiceTest
     public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoCodigoExcederLimite()
     {
         var repository = new Mock<ICondominioRepository>();
-        var service = new CondominioService(repository.Object);
+        var service = CriarService(repository.Object);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
         {
@@ -75,7 +77,7 @@ public class CondominioServiceTest
     public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoCnpjExcederLimite()
     {
         var repository = new Mock<ICondominioRepository>();
-        var service = new CondominioService(repository.Object);
+        var service = CriarService(repository.Object);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
         {
@@ -90,7 +92,7 @@ public class CondominioServiceTest
     public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoNomeExcederLimite()
     {
         var repository = new Mock<ICondominioRepository>();
-        var service = new CondominioService(repository.Object);
+        var service = CriarService(repository.Object);
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
         {
@@ -108,7 +110,7 @@ public class CondominioServiceTest
         var condominio = CreateCondominio();
         repository.Setup(x => x.ObterPorIdAsync(1)).ReturnsAsync(condominio);
 
-        var service = new CondominioService(repository.Object);
+        var service = CriarService(repository.Object);
         var resultado = await service.ObterPorIdAsync(1);
 
         Assert.NotNull(resultado);
@@ -123,11 +125,18 @@ public class CondominioServiceTest
         var repository = new Mock<ICondominioRepository>();
         repository.Setup(x => x.ObterPorIdAsync(9999)).ReturnsAsync((Condominio?)null);
 
-        var service = new CondominioService(repository.Object);
+        var service = CriarService(repository.Object);
         var exception = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorIdAsync(9999));
 
         Assert.Contains("9999", exception.Message);
         repository.Verify(x => x.ObterPorIdAsync(9999), Times.Once);
+    }
+
+    private static CondominioService CriarService(ICondominioRepository repository)
+    {
+        var memoryCache = new MemoryCache(new MemoryCacheOptions());
+        var cacheService = new MemoryCacheService(memoryCache);
+        return new CondominioService(repository, cacheService);
     }
 
     private static Condominio CreateCondominio()
