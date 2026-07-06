@@ -5,6 +5,8 @@ using AuxiAPI.src.Repositories;
 using AuxiAPI.src.Services;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using AuxiAPI.src.Common.Cache;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace AuxiAPI.Tests.ControllersTest;
 
@@ -17,7 +19,7 @@ public class CondominiosControllerTest
         repository.Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()))
             .ReturnsAsync(new List<Condominio> { CreateCondominio() });
 
-        var controller = new CondominiosController(new CondominioService(repository.Object));
+        var controller = new CondominiosController(CriarService(repository.Object));
 
         var resultado = await controller.GetAll(new VisualizarCondominioQuery());
 
@@ -33,13 +35,20 @@ public class CondominiosControllerTest
         var repository = new Mock<ICondominioRepository>();
         repository.Setup(x => x.ObterPorIdAsync(1)).ReturnsAsync(CreateCondominio());
 
-        var controller = new CondominiosController(new CondominioService(repository.Object));
+        var controller = new CondominiosController(CriarService(repository.Object));
 
         var resultado = await controller.GetById(1);
 
         var okResult = Assert.IsType<OkObjectResult>(resultado);
         var body = Assert.IsType<InformacoesCondominioDto>(okResult.Value);
         Assert.Equal("0001", body.CodigoDoCondominio);
+    }
+
+    private static CondominioService CriarService(ICondominioRepository repository)
+    {
+        var memoryCache = new MemoryCache(new MemoryCacheOptions());
+        var cacheService = new MemoryCacheService(memoryCache);
+        return new CondominioService(repository, cacheService);
     }
 
     private static Condominio CreateCondominio()
