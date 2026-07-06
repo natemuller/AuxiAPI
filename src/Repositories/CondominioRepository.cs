@@ -37,10 +37,11 @@ namespace AuxiAPI.src.Repositories
 
             if (!string.IsNullOrWhiteSpace(filtro.NomeDoCondominio))
             {
+                var nome = filtro.NomeDoCondominio.Trim();
                 query = query.Where(c =>
                     EF.Functions.ILike(
                         c.NomeDoCondominio,
-                        $"%{filtro.NomeDoCondominio}%"
+                        $"%{nome}%"
                     )
                 );
             }
