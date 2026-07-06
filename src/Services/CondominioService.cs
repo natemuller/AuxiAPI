@@ -2,11 +2,16 @@ using AuxiAPI.src.Entities;
 using AuxiAPI.src.Repositories;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Common;
+using Microsoft.Extensions.Caching.Memory;
+using AuxiAPI.src.Common.Cache;
 
 namespace AuxiAPI.src.Services
 {
-    public class CondominioService(ICondominioRepository repository)
+    public class CondominioService(ICondominioRepository repository, ICacheService cacheService)
     {
+        private static readonly TimeSpan TempoCachePorId = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan TempoCachePorNome = TimeSpan.FromMinutes(2);
+
         public async Task<List<InformacoesCondominioDto>> ListarCondominiosAsync(VisualizarCondominioQuery query)
         {
             ValidarFiltros(query);
@@ -20,10 +25,17 @@ namespace AuxiAPI.src.Services
 
         public async Task<InformacoesCondominioDto> ObterPorIdAsync(int id)
         {
-            var condominio = await repository.ObterPorIdAsync(id)
-                ?? throw new KeyNotFoundException($"condomínio com id {id} não foi encontrado.");
+            var cacheKey = CondominioCacheKeys.PorId(id);
 
-            return MapearParaDto(condominio);
+            return await cacheService.GetOrCreateAsync(
+                cacheKey,
+                TempoCachePorId,
+                async () =>
+                {
+                    var condominio = await repository.ObterPorIdAsync(id)
+                        ?? throw new KeyNotFoundException($"condomínio com id {id} não foi encontrado.");
+                    return MapearParaDto(condominio);
+                });
         }
 
         private static void ValidarFiltros(VisualizarCondominioQuery query)
