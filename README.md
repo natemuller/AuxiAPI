@@ -1,5 +1,3 @@
-Xará, toma inteiro em **um bloco só**. Copia, cola no `README.md`, commita e para de sofrer com documentação, essa punição medieval disfarçada de boa prática. Baseado no termo do desafio. 
-
 ````md
 # AuxiAPI
 
