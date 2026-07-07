@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Consulta de Condomínios</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background: #f5f5f5;
+      color: #222;
+    }
+
+    h1 {
+      margin-bottom: 8px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    input, select, button {
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    input, select {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    button {
+      cursor: pointer;
+      background: #222;
+      color: white;
+      border: none;
+      margin-right: 8px;
+    }
+
+    button:hover {
+      background: #444;
+    }
+
+    button:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+
+    .linha {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 16px;
+    }
+
+    .status {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .erro {
+      color: #b00020;
+    }
+
+    .sucesso {
+      color: #006b2e;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    th {
+      background: #222;
+      color: white;
+    }
+
+    .paginacao {
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .info-pagina {
+      font-weight: bold;
+      margin-left: 8px;
+    }
+
+    pre {
+      background: #111;
+      color: #eee;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Consulta de Condomínios</h1>
+  <p>teste endpoint <strong>/api/condominios</strong>.</p>
+
+  <div class="card">
+    <div class="linha">
+      <div>
+        <label for="tipoBusca">Tipo de busca</label>
+        <select id="tipoBusca">
+          <option value="todos">Sem filtros</option>
+          <option value="id">ID</option>
+          <option value="codigo">Código do condomínio</option>
+          <option value="cnpj">CNPJ</option>
+          <option value="nome">Nome</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="valorBusca">Valor da busca</label>
+        <input id="valorBusca" type="text" placeholder="Digite o valor da busca" />
+      </div>
+    </div>
+
+    <label for="token">Token JWT Bearer</label>
+    <input id="token" type="text" placeholder="Cole aqui o token JWT, sem a palavra Bearer" />
+
+    <button onclick="buscar(1)">Pesquisar</button>
+    <button onclick="limpar()">Limpar</button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Resultado</h2>
+
+    <div id="resultadoTabela"></div>
+
+    <div class="paginacao" id="paginacao" style="display: none;">
+      <button onclick="paginaAnterior()">Anterior</button>
+      <div id="botoesPaginas"></div>
+      <button onclick="proximaPagina()">Próxima</button>
+      <span id="infoPagina" class="info-pagina"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>JSON</h2>
+    <pre id="json">Nenhuma consulta realizada.</pre>
+  </div>
+
+  <script>
+    let paginaAtual = 1;
+    let totalPaginas = 1;
+
+    const apiBase = "/api/condominios";
+
+    function montarHeaders() {
+      const token = document.getElementById("token").value.trim();
+
+      const headers = {
+        "Accept": "application/json"
+      };
+
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      return headers;
+    }
+
+    function montarUrl(pagina) {
+      const tipoBusca = document.getElementById("tipoBusca").value;
+      const valorBusca = document.getElementById("valorBusca").value.trim();
+
+      if (tipoBusca === "id") {
+        if (!valorBusca) {
+          throw new Error("Informe o ID para pesquisar.");
+        }
+
+        return `${apiBase}/${encodeURIComponent(valorBusca)}`;
+      }
+
+      const params = new URLSearchParams();
+
+      if (tipoBusca === "codigo") {
+        if (!valorBusca) {
+          throw new Error("Informe o código do condomínio.");
+        }
+
+        params.append("CodigoDoCondominio", valorBusca);
+      }
+
+      if (tipoBusca === "cnpj") {
+        if (!valorBusca) {
+          throw new Error("Informe o CNPJ.");
+        }
+
+        params.append("CNPJDoCondominio", valorBusca);
+      }
+
+      if (tipoBusca === "nome") {
+        if (!valorBusca) {
+          throw new Error("Informe o nome do condomínio.");
+        }
+
+        params.append("NomeDoCondominio", valorBusca);
+      }
+
+      params.append("Pagina", pagina);
+
+      return `${apiBase}?${params.toString()}`;
+    }
+
+    async function buscar(pagina) {
+      const status = document.getElementById("status");
+      const json = document.getElementById("json");
+      const resultadoTabela = document.getElementById("resultadoTabela");
+
+      try {
+        status.textContent = "Consultando...";
+        status.className = "status";
+
+        const url = montarUrl(pagina);
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: montarHeaders()
+        });
+
+        const texto = await response.text();
+
+        let data;
+        try {
+          data = texto ? JSON.parse(texto) : null;
+        } catch {
+          data = texto;
+        }
+
+        json.textContent = JSON.stringify(data, null, 2);
+
+        if (!response.ok) {
+          resultadoTabela.innerHTML = "";
+          esconderPaginacao();
+
+          status.textContent = `Erro ${response.status}`;
+          status.className = "status erro";
+          return;
+        }
+
+        status.textContent = `Consulta realizada com sucesso. Status ${response.status}`;
+        status.className = "status sucesso";
+
+        renderizarResultado(data, pagina);
+      } catch (error) {
+        resultadoTabela.innerHTML = "";
+        esconderPaginacao();
+
+        status.textContent = error.message;
+        status.className = "status erro";
+        json.textContent = error.message;
+      }
+    }
+
+    function renderizarResultado(data, pagina) {
+      const tipoBusca = document.getElementById("tipoBusca").value;
+
+      if (tipoBusca === "id") {
+        renderizarTabela([data]);
+        esconderPaginacao();
+        return;
+      }
+
+      paginaAtual = data.pagina ?? pagina;
+      totalPaginas = data.totalPaginas ?? 1;
+
+      renderizarTabela(data.itens ?? []);
+      renderizarPaginacao();
+    }
+
+    function renderizarTabela(itens) {
+      const container = document.getElementById("resultadoTabela");
+
+      if (!itens || itens.length === 0) {
+        container.innerHTML = "<p>Nenhum condomínio encontrado.</p>";
+        return;
+      }
+
+      const linhas = itens.map(item => `
+        <tr>
+          <td>${item.codigoDoCondominio ?? ""}</td>
+          <td>${item.cnpjDoCondominio ?? ""}</td>
+          <td>${item.nomeDoCondominio ?? ""}</td>
+          <td>${item.cidadeDoEndereco ?? ""}</td>
+          <td>${item.estadoDoEndereco ?? ""}</td>
+          <td>${item.status ?? ""}</td>
+          <td>${item.numeroDeTorres ?? ""}</td>
+          <td>${item.numeroDeUnidades ?? ""}</td>
+        </tr>
+      `).join("");
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>CNPJ</th>
+              <th>Nome</th>
+              <th>Cidade</th>
+              <th>Estado</th>
+              <th>Status</th>
+              <th>Torres</th>
+              <th>Unidades</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${linhas}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function renderizarPaginacao() {
+      const paginacao = document.getElementById("paginacao");
+      const botoesPaginas = document.getElementById("botoesPaginas");
+      const infoPagina = document.getElementById("infoPagina");
+
+      paginacao.style.display = "flex";
+
+      botoesPaginas.innerHTML = "";
+
+      for (let i = 1; i <= totalPaginas; i++) {
+        const botao = document.createElement("button");
+        botao.textContent = i;
+        botao.disabled = i === paginaAtual;
+        botao.onclick = () => buscar(i);
+        botoesPaginas.appendChild(botao);
+      }
+
+      infoPagina.textContent = `Página ${paginaAtual} de ${totalPaginas}`;
+    }
+
+    function esconderPaginacao() {
+      document.getElementById("paginacao").style.display = "none";
+    }
+
+    function paginaAnterior() {
+      if (paginaAtual > 1) {
+        buscar(paginaAtual - 1);
+      }
+    }
+
+    function proximaPagina() {
+      if (paginaAtual < totalPaginas) {
+        buscar(paginaAtual + 1);
+      }
+    }
+
+    function limpar() {
+      document.getElementById("tipoBusca").value = "todos";
+      document.getElementById("valorBusca").value = "";
+      document.getElementById("status").textContent = "";
+      document.getElementById("resultadoTabela").innerHTML = "";
+      document.getElementById("json").textContent = "Nenhuma consulta realizada.";
+      esconderPaginacao();
+
+      paginaAtual = 1;
+      totalPaginas = 1;
+    }
+  </script>
+</body>
+</html>

@@ -108,6 +108,8 @@ app.UseStatusCodePages(async context =>
 
 app.UseResponseCaching();
 
+app.UseStaticFiles();
+
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
