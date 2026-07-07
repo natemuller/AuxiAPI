@@ -3,6 +3,7 @@ using AuxiAPI.src.Repositories;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Common;
 using AuxiAPI.src.Common.Cache;
+using AuxiAPI.src.Common.Text;
 
 namespace AuxiAPI.src.Services
 {
@@ -21,7 +22,7 @@ namespace AuxiAPI.src.Services
             if (!DeveUsarCachePorNome(query))
                 return await ListarSemCacheAsync(query);
 
-            var nomeNormalizado = query.NomeDoCondominio!.Trim().ToLowerInvariant();
+            var nomeNormalizado = TextNormalizer.NormalizarBusca(query.NomeDoCondominio);
             var cacheKey = CondominioCacheKeys.PorNome(nomeNormalizado, query.Pagina);
 
             return await cacheService.GetOrCreateAsync(

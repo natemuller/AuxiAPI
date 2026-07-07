@@ -33,6 +33,44 @@ public class CondominioServiceCacheTest
     }
 
     [Fact]
+    public async Task ListarCondominiosAsync_DeveUsarMesmaChaveDeCache_QuandoNomeVariarAcento()
+    {
+        var repository = new Mock<ICondominioRepository>();
+
+        repository
+            .Setup(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio>
+            {
+                CreateCondominio("0001", "Residencial Pelé")
+            }, 1));
+
+        var service = CriarService(repository.Object);
+
+        var primeiraQuery = new VisualizarCondominioQuery
+        {
+            NomeDoCondominio = "pelé",
+            Pagina = 1
+        };
+
+        var segundaQuery = new VisualizarCondominioQuery
+        {
+            NomeDoCondominio = "pele",
+            Pagina = 1
+        };
+
+        await service.ListarCondominiosAsync(primeiraQuery);
+        await service.ListarCondominiosAsync(segundaQuery);
+
+        repository.Verify(
+            x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()),
+            Times.Once);
+        }
+
+    [Fact]
     public async Task ListarCondominiosAsync_DeveRetornarDoCache_NaSegundaConsultaPorNome()
     {
         var repository = new Mock<ICondominioRepository>();
