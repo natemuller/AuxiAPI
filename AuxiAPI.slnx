@@ -4,6 +4,6 @@
   </Folder>
   <Folder Name="/test/" />
   <Folder Name="/test/ServicesTest/">
-    <Project Path="test/ServicesTest/AuxiAPI.Tests.csproj" />
+    <Project Path="test/AuxiAPI.Tests.csproj" />
   </Folder>
 </Solution>
