@@ -1,0 +1,391 @@
+---
+title: Endpoint de Condomínios
+description: Documentação do endpoint responsável pela consulta de condomínios na AuxiAPI.
+---
+
+# Endpoint de Condomínios
+
+O endpoint de **Condomínios** permite consultar informações gerais dos condomínios cadastrados na AuxiAPI.
+
+Ele foi desenvolvido como parte do desafio **StartAPI - Da Lógica à Prática na Criação de API**, com foco em consultas `GET`, uso de parâmetros de rota, filtros por query params, respostas em JSON, tratamento de erros e separação de responsabilidades entre Controller, Service e Repository.
+
+---
+
+## Visão geral
+
+| Informação | Valor |
+| --- | --- |
+| Recurso | Condomínios |
+| Rota base | `/api/condominios` |
+| Método principal | `GET` |
+| Formato de resposta | JSON |
+| Autenticação | JWT Bearer |
+| Paginação | Sim |
+| Cache | Sim |
+
+---
+
+## Autenticação
+
+Os endpoints de Condomínios são protegidos por autenticação JWT.
+
+Para consumir a API, envie o token no header da requisição:
+
+```http
+Authorization: Bearer {token}
+```
+
+Caso o token esteja ausente, inválido ou expirado, a API retorna:
+
+```http
+401 Unauthorized
+```
+
+---
+
+## Listar condomínios
+
+Retorna uma lista paginada de condomínios.
+
+```http
+GET /api/condominios
+```
+
+### Exemplo de requisição
+
+```bash
+curl -X GET "https://localhost:{porta}/api/condominios" \
+  -H "Authorization: Bearer {token}"
+```
+
+### Exemplo de resposta
+
+```json
+{
+  "pagina": 1,
+  "tamanhoPagina": 10,
+  "totalItens": 1,
+  "totalPaginas": 1,
+  "itens": [
+    {
+      "codigoDoCondominio": "0001",
+      "cnpjDoCondominio": "12345678000101",
+      "nomeDoCondominio": "Residencial Exemplo",
+      "endereco": "Rua Exemplo",
+      "numeroDoEndereco": "123",
+      "estadoDoEndereco": "RS",
+      "cidadeDoEndereco": "Porto Alegre",
+      "bairroDoEndereco": "Centro",
+      "cepDoEndereco": "90000000",
+      "numeroDeTorres": 2,
+      "numeroDeUnidades": 120,
+      "status": "Ativo",
+      "dataInicial_Administracao": "2024-01-01T00:00:00",
+      "dataFinal_Administracao": null,
+      "nomeGerenteDeContas": "Nome do Gerente",
+      "nomeSindico": "Nome do Síndico"
+    }
+  ]
+}
+```
+
+---
+
+## Buscar condomínio por ID
+
+Retorna um condomínio específico a partir do seu identificador.
+
+```http
+GET /api/condominios/{id}
+```
+
+### Parâmetros de rota
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `id` | integer | Sim | Identificador do condomínio |
+
+### Exemplo de requisição
+
+```bash
+curl -X GET "https://localhost:{porta}/api/condominios/1" \
+  -H "Authorization: Bearer {token}"
+```
+
+### Exemplo de resposta
+
+```json
+{
+  "codigoDoCondominio": "0001",
+  "cnpjDoCondominio": "12345678000101",
+  "nomeDoCondominio": "Residencial Exemplo",
+  "endereco": "Rua Exemplo",
+  "numeroDoEndereco": "123",
+  "estadoDoEndereco": "RS",
+  "cidadeDoEndereco": "Porto Alegre",
+  "bairroDoEndereco": "Centro",
+  "cepDoEndereco": "90000000",
+  "numeroDeTorres": 2,
+  "numeroDeUnidades": 120,
+  "status": "Ativo",
+  "dataInicial_Administracao": "2024-01-01T00:00:00",
+  "dataFinal_Administracao": null,
+  "nomeGerenteDeContas": "Nome do Gerente",
+  "nomeSindico": "Nome do Síndico"
+}
+```
+
+---
+
+## Filtros por query params
+
+A listagem de condomínios permite filtros via query params.
+
+### Filtrar por código do condomínio
+
+```http
+GET /api/condominios?CodigoDoCondominio=0001
+```
+
+### Filtrar por CNPJ
+
+```http
+GET /api/condominios?CNPJDoCondominio=12345678000101
+```
+
+### Filtrar por nome
+
+```http
+GET /api/condominios?NomeDoCondominio=Residencial
+```
+
+### Paginação
+
+```http
+GET /api/condominios?Pagina=2
+```
+
+### Combinação de filtros
+
+```http
+GET /api/condominios?NomeDoCondominio=Residencial&Pagina=1
+```
+
+---
+
+## Query params disponíveis
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+| --- | --- | --- | --- |
+| `CodigoDoCondominio` | string | Não | Filtra pelo código do condomínio |
+| `CNPJDoCondominio` | string | Não | Filtra pelo CNPJ do condomínio |
+| `NomeDoCondominio` | string | Não | Filtra pelo nome do condomínio |
+| `Pagina` | integer | Não | Define a página da consulta paginada |
+
+---
+
+## Resposta paginada
+
+A listagem retorna os dados dentro de um objeto paginado.
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `pagina` | integer | Página atual |
+| `tamanhoPagina` | integer | Quantidade de itens por página |
+| `totalItens` | integer | Total de registros encontrados |
+| `totalPaginas` | integer | Total de páginas disponíveis |
+| `itens` | array | Lista de condomínios retornados |
+
+---
+
+## Campos retornados
+
+| Campo | Tipo | Descrição |
+| --- | --- | --- |
+| `codigoDoCondominio` | string | Código do condomínio |
+| `cnpjDoCondominio` | string | CNPJ do condomínio |
+| `nomeDoCondominio` | string | Nome do condomínio |
+| `endereco` | string | Logradouro |
+| `numeroDoEndereco` | string | Número do endereço |
+| `estadoDoEndereco` | string | Estado |
+| `cidadeDoEndereco` | string | Cidade |
+| `bairroDoEndereco` | string | Bairro |
+| `cepDoEndereco` | string | CEP |
+| `numeroDeTorres` | integer | Quantidade de torres |
+| `numeroDeUnidades` | integer | Quantidade de unidades |
+| `status` | string | Status do condomínio |
+| `dataInicial_Administracao` | string | Data de início da administração |
+| `dataFinal_Administracao` | string/null | Data final da administração |
+| `nomeGerenteDeContas` | string | Nome do gerente de contas |
+| `nomeSindico` | string | Nome do síndico |
+
+---
+
+## Status codes
+
+| Status | Significado |
+| --- | --- |
+| `200 OK` | Requisição executada com sucesso |
+| `400 Bad Request` | Parâmetro inválido |
+| `401 Unauthorized` | Token ausente, inválido ou expirado |
+| `404 Not Found` | Condomínio ou rota não encontrada |
+| `500 Internal Server Error` | Erro inesperado no servidor |
+
+---
+
+## Exemplos de erro
+
+### Condomínio não encontrado
+
+```json
+{
+  "sucesso": false,
+  "status": 404,
+  "mensagem": "condominio nao encontrado."
+}
+```
+
+### Parâmetro inválido
+
+```json
+{
+  "sucesso": false,
+  "status": 400,
+  "mensagem": "pagina deve ser maior ou igual a 1."
+}
+```
+
+### Rota inexistente
+
+```json
+{
+  "sucesso": false,
+  "status": 404,
+  "mensagem": "a rota ou endpoint solicitado nao existe."
+}
+```
+
+---
+
+## Cache
+
+A API utiliza cache em memória para reduzir consultas repetidas ao banco.
+
+O cache está aplicado na camada de Service, não no Controller.
+
+Atualmente, o cache cobre:
+
+- busca por ID;
+- busca por nome do condomínio.
+
+### Regras de cache
+
+| Cenário | Usa cache? |
+| --- | --- |
+| Buscar por ID | Sim |
+| Buscar por nome | Sim |
+| Buscar por nome com variação de maiúsculas/minúsculas | Sim |
+| Buscar por nome com espaços extras | Sim |
+| Buscar por páginas diferentes | Usa chaves diferentes |
+| Buscar por nome junto com código | Não |
+| Listagem sem filtro de nome | Não |
+| Erro de ID não encontrado | Não cacheia |
+
+---
+
+## Arquitetura aplicada
+
+O endpoint foi implementado com separação de responsabilidades.
+
+```text
+Controller -> Service -> Repository -> Banco de Dados
+```
+
+### Controller
+
+Responsável por receber a requisição HTTP e retornar a resposta ao cliente.
+
+Não contém regra de negócio.
+
+### Service
+
+Responsável por:
+
+- validar entradas;
+- normalizar filtros;
+- aplicar cache;
+- aplicar paginação;
+- converter entidades para DTOs;
+- tratar dados não encontrados.
+
+### Repository
+
+Responsável por acessar o banco de dados usando Entity Framework Core.
+
+Executa consultas como:
+
+- busca por ID;
+- filtro por código;
+- filtro por CNPJ;
+- filtro por nome;
+- paginação com `Skip` e `Take`.
+
+---
+
+## Testes
+
+O endpoint possui testes automatizados para validar os principais comportamentos.
+
+### Tipos de teste
+
+| Tipo | Objetivo |
+| --- | --- |
+| Controller | Validar retorno HTTP e integração com service |
+| Service | Validar regras de negócio, paginação, erros e cache |
+| Repository | Validar consultas e filtros no banco |
+| Integração | Validar comportamento da API em fluxo completo |
+
+### Testes de cache
+
+Os testes de cache validam que:
+
+- a segunda busca por ID retorna do cache;
+- a segunda busca por nome retorna do cache;
+- nomes com maiúsculas/minúsculas e espaços usam a mesma chave;
+- páginas diferentes usam caches diferentes;
+- nome combinado com código não usa cache;
+- listagem sem nome não usa cache;
+- erros não são cacheados.
+
+---
+
+## Exemplo de fluxo
+
+```text
+Cliente envia GET /api/condominios?NomeDoCondominio=Residencial
+        |
+        v
+Controller recebe a requisição
+        |
+        v
+Service valida filtros e verifica cache
+        |
+        v
+Repository consulta o banco, caso não exista cache
+        |
+        v
+Service converte entidade para DTO
+        |
+        v
+Controller retorna JSON com status 200
+```
+
+---
+
+## Observações
+
+Este endpoint foi construído apenas para consulta de dados.
+
+Operações de criação, edição e exclusão não fazem parte do escopo atual.
+
+Endpoints de Torres e Unidades fazem parte das próximas etapas do desafio.
