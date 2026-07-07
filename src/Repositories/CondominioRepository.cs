@@ -7,7 +7,7 @@ namespace AuxiAPI.src.Repositories
 {
     public class CondominioRepository(CondominiosDbContext context): ICondominioRepository
     {   
-        public async Task<List<Condominio>> ListarAsync(VisualizarCondominioQuery filtro)
+        public async Task<(List<Condominio> Itens, int TotalItens)> ListarAsync(VisualizarCondominioQuery filtro, int tamanhoPagina)
         {
             var query = context.Condominios
                 .AsNoTracking()
@@ -18,14 +18,14 @@ namespace AuxiAPI.src.Repositories
                 var codigo = filtro.CodigoDoCondominio.PadLeft(4, '0');
 
                 query = query.Where(c =>
-                    c.CodigoDoCondominio == codigo
+            c.CodigoDoCondominio == codigo
                 );
             }
 
             if (!string.IsNullOrWhiteSpace(filtro.CNPJDoCondominio))
             {
                 var cnpj = new string(
-                [.. filtro.CNPJDoCondominio.Where(char.IsDigit)]
+                    [.. filtro.CNPJDoCondominio.Where(char.IsDigit)]
                 );
 
                 query = query.Where(c =>
@@ -36,6 +36,7 @@ namespace AuxiAPI.src.Repositories
             if (!string.IsNullOrWhiteSpace(filtro.NomeDoCondominio))
             {
                 var nome = filtro.NomeDoCondominio.Trim();
+
                 query = query.Where(c =>
                     EF.Functions.ILike(
                         c.NomeDoCondominio,
@@ -44,8 +45,18 @@ namespace AuxiAPI.src.Repositories
                 );
             }
 
-            return await query.ToListAsync();
-        }
+            var totalItens = await query.CountAsync();
+
+            var registrosParaPular = (filtro.Pagina - 1) * tamanhoPagina;
+
+            var itens = await query
+                .OrderBy(c => c.Id)
+                .Skip(registrosParaPular)
+                .Take(tamanhoPagina)
+            .ToListAsync();
+
+            return (itens, totalItens);
+        }   
 
         public async Task<Condominio?> ObterPorIdAsync(int id)
         {

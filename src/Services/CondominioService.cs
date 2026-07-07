@@ -8,18 +8,21 @@ namespace AuxiAPI.src.Services
 {
     public class CondominioService(ICondominioRepository repository, ICacheService cacheService)
     {
+        private const int TamanhoPagina = 10;
         private static readonly TimeSpan TempoCachePorId = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan TempoCachePorNome = TimeSpan.FromMinutes(2);
         
-        public async Task<List<InformacoesCondominioDto>> ListarCondominiosAsync(VisualizarCondominioQuery query)
+        public async Task<ResultadoPaginadoDto<InformacoesCondominioDto>> ListarCondominiosAsync(
+            VisualizarCondominioQuery query)
         {
             ValidarFiltros(query);
+            ValidarPaginacao(query);
 
             if (!DeveUsarCachePorNome(query))
                 return await ListarSemCacheAsync(query);
 
             var nomeNormalizado = query.NomeDoCondominio!.Trim().ToLowerInvariant();
-            var cacheKey = CondominioCacheKeys.PorNome(nomeNormalizado);
+            var cacheKey = CondominioCacheKeys.PorNome(nomeNormalizado, query.Pagina);
 
             return await cacheService.GetOrCreateAsync(
                 cacheKey,
@@ -43,12 +46,23 @@ namespace AuxiAPI.src.Services
                 });
         }
 
-        private async Task<List<InformacoesCondominioDto>> ListarSemCacheAsync(VisualizarCondominioQuery query)
+        private async Task<ResultadoPaginadoDto<InformacoesCondominioDto>> ListarSemCacheAsync(
+            VisualizarCondominioQuery query)
         {
-            var condominios = await repository.ListarAsync(query);
-            return condominios
+            var resultado = await repository.ListarAsync(query, TamanhoPagina);
+
+            var itens = resultado.Itens
                 .Select(MapearParaDto)
                 .ToList();
+
+            return new ResultadoPaginadoDto<InformacoesCondominioDto>
+            {
+                Pagina = query.Pagina,
+                TamanhoPagina = TamanhoPagina,
+                TotalItens = resultado.TotalItens,
+                TotalPaginas = (int)Math.Ceiling(resultado.TotalItens / (double)TamanhoPagina),
+                Itens = itens
+            };
         }
 
         private static bool DeveUsarCachePorNome(VisualizarCondominioQuery query)
@@ -68,6 +82,11 @@ namespace AuxiAPI.src.Services
 
             if (query.NomeDoCondominio?.Length > 200)
                 throw new ArgumentException(MensagensDeErro.NomeTamanhoExcedido);
+        }
+
+        private static void ValidarPaginacao(VisualizarCondominioQuery query)
+        {
+            if (query.Pagina <1) throw new ArgumentException(MensagensDeErro.PaginaInvalida);
         }
 
         private static InformacoesCondominioDto MapearParaDto(Condominio condominio)

@@ -13,5 +13,7 @@ namespace AuxiAPI.src.DTOs
                 : null;
     }
     public string? NomeDoCondominio { get; set; }
+
+    public int Pagina { get; set; } = 1;
     }
 }
