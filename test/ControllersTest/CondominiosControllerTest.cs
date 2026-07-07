@@ -13,11 +13,15 @@ namespace AuxiAPI.Tests.ControllersTest;
 public class CondominiosControllerTest
 {
     [Fact]
-    public async Task GetAll_DeveRetornarOk_ComListaDeCondominios()
+    public async Task GetAll_DeveRetornarOk_ComListaPaginadaDeCondominios()
     {
         var repository = new Mock<ICondominioRepository>();
-        repository.Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()))
-            .ReturnsAsync(new List<Condominio> { CreateCondominio() });
+
+        repository
+            .Setup(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio> { CreateCondominio() }, 1));
 
         var controller = new CondominiosController(CriarService(repository.Object));
 
@@ -25,8 +29,14 @@ public class CondominiosControllerTest
 
         var okResult = Assert.IsType<OkObjectResult>(resultado);
         Assert.Equal(200, okResult.StatusCode);
-        var body = Assert.IsAssignableFrom<List<InformacoesCondominioDto>>(okResult.Value);
-        Assert.Single(body);
+
+        var body = Assert.IsType<ResultadoPaginadoDto<InformacoesCondominioDto>>(okResult.Value);
+
+        Assert.Equal(1, body.Pagina);
+        Assert.Equal(10, body.TamanhoPagina);
+        Assert.Equal(1, body.TotalItens);
+        Assert.Equal(1, body.TotalPaginas);
+        Assert.Single(body.Itens);
     }
 
     [Fact]

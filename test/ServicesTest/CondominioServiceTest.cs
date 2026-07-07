@@ -18,13 +18,21 @@ public class CondominioServiceTest
         var condominio = CreateCondominio();
         var query = new VisualizarCondominioQuery();
 
-        repository.Setup(x => x.ListarAsync(query)).ReturnsAsync(new List<Condominio> { condominio });
+        repository
+            .Setup(x => x.ListarAsync(query, It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio> { condominio }, 1));
 
         var service = CriarService(repository.Object);
         var resultado = await service.ListarCondominiosAsync(query);
 
-        repository.Verify(x => x.ListarAsync(query), Times.Once);
-        var dto = Assert.Single(resultado);
+        repository.Verify(x => x.ListarAsync(query, 10), Times.Once);
+
+        Assert.Equal(1, resultado.Pagina);
+        Assert.Equal(10, resultado.TamanhoPagina);
+        Assert.Equal(1, resultado.TotalItens);
+        Assert.Equal(1, resultado.TotalPaginas);
+
+        var dto = Assert.Single(resultado.Itens);
         Assert.Equal(condominio.CodigoDoCondominio, dto.CodigoDoCondominio);
         Assert.Equal(condominio.NomeDoCondominio, dto.NomeDoCondominio);
     }
@@ -34,12 +42,23 @@ public class CondominioServiceTest
     {
         var repository = new Mock<ICondominioRepository>();
         var condominio = CreateCondominio();
-        repository.Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>())).ReturnsAsync(new List<Condominio> { condominio });
+
+        repository
+            .Setup(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio> { condominio }, 1));
 
         var service = CriarService(repository.Object);
         var resultado = await service.ListarCondominiosAsync(new VisualizarCondominioQuery());
 
-        var dto = Assert.Single(resultado);
+        Assert.Equal(1, resultado.Pagina);
+        Assert.Equal(10, resultado.TamanhoPagina);
+        Assert.Equal(1, resultado.TotalItens);
+        Assert.Equal(1, resultado.TotalPaginas);
+
+        var dto = Assert.Single(resultado.Itens);
+
         Assert.Equal(condominio.CodigoDoCondominio, dto.CodigoDoCondominio);
         Assert.Equal(condominio.CNPJDoCondominio, dto.CNPJDoCondominio);
         Assert.Equal(condominio.NomeDoCondominio, dto.NomeDoCondominio);
@@ -64,13 +83,17 @@ public class CondominioServiceTest
         var repository = new Mock<ICondominioRepository>();
         var service = CriarService(repository.Object);
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
-        {
-            CodigoDoCondominio = new string('1', 16)
-        }));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ListarCondominiosAsync(new VisualizarCondominioQuery
+            {
+                CodigoDoCondominio = new string('1', 16)
+            }));
 
         Assert.Equal(MensagensDeErro.CodigoTamanhoExcedido, exception.Message);
-        repository.Verify(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()), Times.Never);
+
+        repository.Verify(x => x.ListarAsync(
+            It.IsAny<VisualizarCondominioQuery>(),
+            It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
@@ -79,13 +102,17 @@ public class CondominioServiceTest
         var repository = new Mock<ICondominioRepository>();
         var service = CriarService(repository.Object);
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
-        {
-            CNPJDoCondominio = "12.345.678/9012-3456"
-        }));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ListarCondominiosAsync(new VisualizarCondominioQuery
+            {
+                CNPJDoCondominio = "12.345.678/9012-3456"
+            }));
 
         Assert.Equal(MensagensDeErro.CnpjTamanhoExcedido, exception.Message);
-        repository.Verify(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()), Times.Never);
+
+        repository.Verify(x => x.ListarAsync(
+            It.IsAny<VisualizarCondominioQuery>(),
+            It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
@@ -94,13 +121,36 @@ public class CondominioServiceTest
         var repository = new Mock<ICondominioRepository>();
         var service = CriarService(repository.Object);
 
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() => service.ListarCondominiosAsync(new VisualizarCondominioQuery
-        {
-            NomeDoCondominio = new string('n', 201)
-        }));
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ListarCondominiosAsync(new VisualizarCondominioQuery
+            {
+                NomeDoCondominio = new string('n', 201)
+            }));
 
         Assert.Equal(MensagensDeErro.NomeTamanhoExcedido, exception.Message);
-        repository.Verify(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()), Times.Never);
+
+        repository.Verify(x => x.ListarAsync(
+            It.IsAny<VisualizarCondominioQuery>(),
+            It.IsAny<int>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoPaginaForMenorQueUm()
+    {
+        var repository = new Mock<ICondominioRepository>();
+        var service = CriarService(repository.Object);
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            service.ListarCondominiosAsync(new VisualizarCondominioQuery
+            {
+                Pagina = 0
+            }));
+
+        Assert.Equal(MensagensDeErro.PaginaInvalida, exception.Message);
+
+        repository.Verify(x => x.ListarAsync(
+            It.IsAny<VisualizarCondominioQuery>(),
+            It.IsAny<int>()), Times.Never);
     }
 
     [Fact]
@@ -108,7 +158,10 @@ public class CondominioServiceTest
     {
         var repository = new Mock<ICondominioRepository>();
         var condominio = CreateCondominio();
-        repository.Setup(x => x.ObterPorIdAsync(1)).ReturnsAsync(condominio);
+
+        repository
+            .Setup(x => x.ObterPorIdAsync(1))
+            .ReturnsAsync(condominio);
 
         var service = CriarService(repository.Object);
         var resultado = await service.ObterPorIdAsync(1);
@@ -116,6 +169,7 @@ public class CondominioServiceTest
         Assert.NotNull(resultado);
         Assert.Equal(condominio.CodigoDoCondominio, resultado.CodigoDoCondominio);
         Assert.Equal(condominio.NomeDoCondominio, resultado.NomeDoCondominio);
+
         repository.Verify(x => x.ObterPorIdAsync(1), Times.Once);
     }
 
@@ -123,12 +177,18 @@ public class CondominioServiceTest
     public async Task ObterPorIdAsync_DeveLancarKeyNotFoundException_QuandoIdNaoExistir()
     {
         var repository = new Mock<ICondominioRepository>();
-        repository.Setup(x => x.ObterPorIdAsync(9999)).ReturnsAsync((Condominio?)null);
+
+        repository
+            .Setup(x => x.ObterPorIdAsync(9999))
+            .ReturnsAsync((Condominio?)null);
 
         var service = CriarService(repository.Object);
-        var exception = await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorIdAsync(9999));
+
+        var exception = await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            service.ObterPorIdAsync(9999));
 
         Assert.Contains("9999", exception.Message);
+
         repository.Verify(x => x.ObterPorIdAsync(9999), Times.Once);
     }
 

@@ -38,11 +38,13 @@ public class CondominioServiceCacheTest
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .SetupSequence(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()))
-            .ReturnsAsync(new List<Condominio>
+            .SetupSequence(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio>
             {
                 CreateCondominio()
-            })
+            }, 1))
             .ThrowsAsync(new Exception("Repository foi chamado de novo. Cache por nome não funcionou."));
 
         var service = CriarService(repository.Object);
@@ -56,14 +58,22 @@ public class CondominioServiceCacheTest
         var segundaConsulta = await service.ListarCondominiosAsync(query);
 
         repository.Verify(
-            x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()),
+            x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()),
             Times.Once);
 
-        Assert.Single(primeiraConsulta);
-        Assert.Single(segundaConsulta);
+        Assert.Single(primeiraConsulta.Itens);
+        Assert.Single(segundaConsulta.Itens);
+
+        Assert.Equal(1, primeiraConsulta.Pagina);
+        Assert.Equal(10, primeiraConsulta.TamanhoPagina);
+        Assert.Equal(1, primeiraConsulta.TotalItens);
+        Assert.Equal(1, primeiraConsulta.TotalPaginas);
+
         Assert.Equal(
-            primeiraConsulta[0].NomeDoCondominio,
-            segundaConsulta[0].NomeDoCondominio);
+            primeiraConsulta.Itens[0].NomeDoCondominio,
+            segundaConsulta.Itens[0].NomeDoCondominio);
     }
 
     [Fact]
@@ -72,11 +82,13 @@ public class CondominioServiceCacheTest
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()))
-            .ReturnsAsync(new List<Condominio>
+            .Setup(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio>
             {
                 CreateCondominio()
-            });
+            }, 1));
 
         var service = CriarService(repository.Object);
 
@@ -94,11 +106,64 @@ public class CondominioServiceCacheTest
         var segundaConsulta = await service.ListarCondominiosAsync(segundaQuery);
 
         repository.Verify(
-            x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()),
+            x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()),
             Times.Once);
 
-        Assert.Single(primeiraConsulta);
-        Assert.Single(segundaConsulta);
+        Assert.Single(primeiraConsulta.Itens);
+        Assert.Single(segundaConsulta.Itens);
+    }
+
+    [Fact]
+    public async Task ListarCondominiosAsync_DeveUsarCachesDiferentes_QuandoPaginasForemDiferentes()
+    {
+        var repository = new Mock<ICondominioRepository>();
+
+        repository
+            .SetupSequence(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio>
+            {
+                CreateCondominio("0001", "Residencial Página 1")
+            }, 20))
+            .ReturnsAsync((new List<Condominio>
+            {
+                CreateCondominio("0011", "Residencial Página 2")
+            }, 20));
+
+        var service = CriarService(repository.Object);
+
+        var primeiraQuery = new VisualizarCondominioQuery
+        {
+            NomeDoCondominio = "residencial",
+            Pagina = 1
+        };
+
+        var segundaQuery = new VisualizarCondominioQuery
+        {
+            NomeDoCondominio = "residencial",
+            Pagina = 2
+        };
+
+        var primeiraConsulta = await service.ListarCondominiosAsync(primeiraQuery);
+        var segundaConsulta = await service.ListarCondominiosAsync(segundaQuery);
+
+        repository.Verify(
+            x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()),
+            Times.Exactly(2));
+
+        Assert.Equal(1, primeiraConsulta.Pagina);
+        Assert.Equal(2, segundaConsulta.Pagina);
+
+        Assert.Equal("0001", primeiraConsulta.Itens[0].CodigoDoCondominio);
+        Assert.Equal("0011", segundaConsulta.Itens[0].CodigoDoCondominio);
+
+        Assert.Equal("Residencial Página 1", primeiraConsulta.Itens[0].NomeDoCondominio);
+        Assert.Equal("Residencial Página 2", segundaConsulta.Itens[0].NomeDoCondominio);
     }
 
     [Fact]
@@ -107,11 +172,13 @@ public class CondominioServiceCacheTest
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()))
-            .ReturnsAsync(new List<Condominio>
+            .Setup(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio>
             {
                 CreateCondominio()
-            });
+            }, 1));
 
         var service = CriarService(repository.Object);
 
@@ -125,7 +192,9 @@ public class CondominioServiceCacheTest
         await service.ListarCondominiosAsync(query);
 
         repository.Verify(
-            x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()),
+            x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()),
             Times.Exactly(2));
     }
 
@@ -135,11 +204,13 @@ public class CondominioServiceCacheTest
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .Setup(x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()))
-            .ReturnsAsync(new List<Condominio>
+            .Setup(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<Condominio>
             {
                 CreateCondominio()
-            });
+            }, 1));
 
         var service = CriarService(repository.Object);
 
@@ -149,7 +220,9 @@ public class CondominioServiceCacheTest
         await service.ListarCondominiosAsync(query);
 
         repository.Verify(
-            x => x.ListarAsync(It.IsAny<VisualizarCondominioQuery>()),
+            x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()),
             Times.Exactly(2));
     }
 
@@ -178,13 +251,15 @@ public class CondominioServiceCacheTest
         return new CondominioService(repository, cacheService);
     }
 
-    private static Condominio CreateCondominio()
+    private static Condominio CreateCondominio(
+        string codigo = "0001",
+        string nome = "Residencial Brasil-Hexa")
     {
         return new Condominio
         {
-            CodigoDoCondominio = "0001",
+            CodigoDoCondominio = codigo,
             CNPJDoCondominio = "12345678000101",
-            NomeDoCondominio = "Residencial Brasil-Hexa",
+            NomeDoCondominio = nome,
             Endereco = "Rua Teste",
             NumeroDoEndereco = "123",
             EstadoDoEndereco = "RS",
