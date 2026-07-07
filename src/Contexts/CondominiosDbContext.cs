@@ -236,6 +236,12 @@ namespace AuxiAPI.src.Contexts
                 }
             );
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder
+                .HasDbFunction(typeof(PostgresDbFunctions)
+                    .GetMethod(nameof(PostgresDbFunctions.Unaccent), new[] { typeof(string) })!)
+                .HasName("unaccent")
+                .HasSchema("public");
         }
     }
 }

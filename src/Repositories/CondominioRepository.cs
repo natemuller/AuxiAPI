@@ -2,6 +2,7 @@ using AuxiAPI.src.Entities;
 using AuxiAPI.src.Contexts;
 using Microsoft.EntityFrameworkCore;
 using AuxiAPI.src.DTOs;
+using AuxiAPI.src.Common.Text;
 
 namespace AuxiAPI.src.Repositories
 {
@@ -18,7 +19,7 @@ namespace AuxiAPI.src.Repositories
                 var codigo = filtro.CodigoDoCondominio.PadLeft(4, '0');
 
                 query = query.Where(c =>
-            c.CodigoDoCondominio == codigo
+                    c.CodigoDoCondominio == codigo
                 );
             }
 
@@ -35,12 +36,12 @@ namespace AuxiAPI.src.Repositories
 
             if (!string.IsNullOrWhiteSpace(filtro.NomeDoCondominio))
             {
-                var nome = filtro.NomeDoCondominio.Trim();
+                var nomeNormalizado = TextNormalizer.NormalizarBusca(filtro.NomeDoCondominio.Trim());
 
                 query = query.Where(c =>
                     EF.Functions.ILike(
-                        c.NomeDoCondominio,
-                        $"%{nome}%"
+                        PostgresDbFunctions.Unaccent(c.NomeDoCondominio),
+                        $"%{nomeNormalizado}%"
                     )
                 );
             }
