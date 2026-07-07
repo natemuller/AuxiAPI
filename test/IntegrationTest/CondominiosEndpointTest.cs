@@ -4,11 +4,13 @@ using System.Text.Json;
 using AuxiAPI.src.Contexts;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Entities;
+using AuxiAPI.Tests.ServicesTest;
 using AuxiAPI.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.TestHost;
 
 namespace AuxiAPI.Tests.IntegrationTest;
 
@@ -16,17 +18,31 @@ namespace AuxiAPI.Tests.IntegrationTest;
 public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly PostgresTestFixture _fixture = fixture;
+    
     private readonly WebApplicationFactory<Program> _factory = new WebApplicationFactory<Program>()
-        .WithWebHostBuilder(builder =>
+    .WithWebHostBuilder(builder =>
+    {
+        builder.ConfigureAppConfiguration((_, configBuilder) =>
         {
-            builder.ConfigureAppConfiguration((_, configBuilder) =>
+            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:SupabaseConnection"] = fixture.ConnectionString
-                });
+                ["ConnectionStrings:SupabaseConnection"] = fixture.ConnectionString
             });
         });
+
+        builder.ConfigureTestServices(services =>
+        {
+            services
+                .AddAuthentication(options =>
+                {
+                    options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                    options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+                })
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                    TestAuthHandler.SchemeName,
+                    _ => { });
+        });
+    });
 
     [Fact]
     public async Task GET_api_condominios_DeveRetornar200_ComLista()

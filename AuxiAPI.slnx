@@ -3,5 +3,8 @@
     <Project Path="src/AuxiAPI.WebApi.csproj" />
   </Folder>
   <Folder Name="/test/" />
-  <Folder Name="/test/ServicesTest/" />
+
+  <Folder Name="/test/">
+    <Project Path="test/AuxiAPI.Tests.csproj" />
+  </Folder>
 </Solution>

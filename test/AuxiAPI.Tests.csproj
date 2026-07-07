@@ -27,17 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\AssemblyInfo.cs" Link="AssemblyInfo.cs" />
-    <Compile Include="..\TestInfrastructure\PostgresTestFixture.cs" Link="TestInfrastructure\PostgresTestFixture.cs" />
-    <Compile Include="..\RepositoriesTest\CondominioRepositoryTest.cs" Link="RepositoriesTest\CondominioRepositoryTest.cs" />
-    <Compile Include="..\ControllersTest\CondominiosControllerTest.cs" Link="ControllersTest\CondominiosControllerTest.cs" />
-    <Compile Include="..\IntegrationTest\CondominiosEndpointTest.cs" Link="IntegrationTest\CondominiosEndpointTest.cs" />
-    <Compile Include="..\DTOsTest\VisualizarCondominioQueryTest.cs" Link="DTOsTest\VisualizarCondominioQueryTest.cs" />
-    <Compile Include="..\MiddlewaresTest\GlobalExceptionHandlerTest.cs" Link="MiddlewaresTest\GlobalExceptionHandlerTest.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\AuxiAPI.WebApi.csproj" />
+    <ProjectReference Include="..\src\AuxiAPI.WebApi.csproj" />
   </ItemGroup>
 
 </Project>
