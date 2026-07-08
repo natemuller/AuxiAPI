@@ -1,9 +1,8 @@
-````md
 # AuxiAPI
 
 API REST desenvolvida em **.NET 10** para consulta de dados do domínio condominial, criada como parte do desafio **StartAPI - Da Lógica à Prática na Criação de API**.
 
-O objetivo do projeto é consolidar conhecimentos práticos de desenvolvimento back-end, aplicando conceitos de API REST, HTTP, JSON, separação de responsabilidades, tratamento de erros, testes e documentação.
+O objetivo do projeto é consolidar conhecimentos práticos de desenvolvimento back-end, aplicando conceitos de API REST, HTTP, JSON, separação de responsabilidades, tratamento de erros, testes, cache persistente e documentação.
 
 ---
 
@@ -30,7 +29,8 @@ Implementado nesta etapa:
 - validação de entrada;
 - tratamento padronizado de erros;
 - autenticação JWT;
-- cache em memória;
+- cache persistente em tabela no Supabase/PostgreSQL;
+- invalidação automática de cache via trigger no banco;
 - documentação com Swagger;
 - testes automatizados.
 
@@ -68,11 +68,12 @@ O projeto utiliza uma arquitetura em camadas, separando as responsabilidades pri
 AuxiAPI/
 ├── src/
 │   ├── Common/
-│   │   ├── Cache/
+│   │   ├── Text/
 │   │   └── MensagensDeErro.cs
 │   │
 │   ├── Contexts/
-│   │   └── CondominiosDbContext.cs
+│   │   ├── CondominiosDbContext.cs
+│   │   └── PostgresDbFunctions.cs
 │   │
 │   ├── Controllers/
 │   │   └── CondominiosController.cs
@@ -83,31 +84,53 @@ AuxiAPI/
 │   │   └── VisualizarCondominioQuery.cs
 │   │
 │   ├── Entities/
-│   │   └── Condominio.cs
+│   │   ├── Condominio.cs
+│   │   └── CacheEntry.cs
 │   │
 │   ├── Middlewares/
 │   │   ├── GlobalExceptionHandler.cs
 │   │   └── ValidarModelStateFilter.cs
 │   │
+│   ├── Migrations/
+│   │
+│   ├── Properties/
+│   │
 │   ├── Repositories/
 │   │   ├── ICondominioRepository.cs
-│   │   └── CondominioRepository.cs
+│   │   ├── CondominioRepository.cs
+│   │   ├── ICacheRepository.cs
+│   │   └── CacheRepository.cs
 │   │
 │   ├── Services/
-│   │   └── CondominioService.cs
+│   │   ├── CondominioService.cs
+│   │   ├── IDatabaseCacheService.cs
+│   │   └── DatabaseCacheService.cs
 │   │
-│   ├── Program.cs
-│   └── AuxiAPI.WebApi.csproj
+│   ├── wwwroot/
+│   ├── appsettings.json
+│   ├── appsettings.Development.json
+│   ├── AuxiAPI.WebApi.csproj
+│   ├── AuxiAPI.WebApi.http
+│   └── Program.cs
 │
 ├── test/
 │   ├── ControllersTest/
-│   ├── ServicesTest/
-│   ├── RepositoriesTest/
+│   ├── DTOsTest/
 │   ├── IntegrationTest/
-│   └── TestInfrastructure/
+│   ├── MiddlewaresTest/
+│   ├── RepositoriesTest/
+│   ├── ServicesTest/
+│   ├── TestInfrastructure/
+│   ├── AssemblyInfo.cs
+│   └── AuxiAPI.Tests.csproj
 │
+├── .gitignore
+├── AuxiAPI.sln
+├── cls
 └── README.md
 ```
+
+> As pastas `bin/`, `obj/` e `TestResults/` são geradas por build/teste e não fazem parte da arquitetura lógica do projeto.
 
 ---
 
@@ -137,8 +160,9 @@ No endpoint de Condomínios, o service é responsável por:
 - validar parâmetros recebidos;
 - normalizar filtros;
 - aplicar regras de paginação;
-- consultar dados através do repository;
-- aplicar cache quando necessário;
+- consultar o cache persistente antes de acessar a tabela de condomínios;
+- salvar novas respostas na tabela `cache` quando não houver cache válido;
+- aplicar cache nas consultas por ID e por nome do condomínio;
 - converter entidades para DTOs;
 - tratar cenários de dados não encontrados.
 
@@ -156,6 +180,25 @@ No endpoint de Condomínios, o repository executa:
 - filtros por CNPJ;
 - filtros por nome;
 - consultas otimizadas para leitura com `AsNoTracking()`.
+
+---
+
+### Cache Repository
+
+A camada de cache repository é responsável pelo acesso à tabela `cache`.
+
+Ela executa:
+
+- busca de cache válido por chave;
+- verificação de expiração;
+- verificação de invalidação;
+- persistência de novas respostas cacheadas.
+
+Um registro de cache só é considerado válido quando:
+
+- a chave da consulta é a mesma;
+- `expirado_em` é maior que a data/hora atual;
+- `invalidado_em` está nulo.
 
 ---
 
@@ -205,11 +248,27 @@ O endpoint de listagem aceita filtros via query params.
 GET /api/condominios?CodigoDoCondominio=0001
 ```
 
+O código do condomínio possui regra de quatro dígitos. Pesquisas como `1` são interpretadas como `0001`.
+
+```http
+GET /api/condominios?CodigoDoCondominio=1
+```
+
+---
+
 #### Filtrar por CNPJ
 
 ```http
 GET /api/condominios?CNPJDoCondominio=12345678000101
 ```
+
+O CNPJ pode ser informado com ou sem máscara.
+
+```http
+GET /api/condominios?CNPJDoCondominio=12.345.678/0001-01
+```
+
+---
 
 #### Filtrar por nome
 
@@ -217,11 +276,19 @@ GET /api/condominios?CNPJDoCondominio=12345678000101
 GET /api/condominios?NomeDoCondominio=Residencial
 ```
 
+A busca por nome ignora diferenças de maiúsculas, minúsculas e acentuação.
+
+---
+
 #### Paginação
 
 ```http
 GET /api/condominios?Pagina=2
 ```
+
+O tamanho da página é fixo em 10 itens.
+
+---
 
 #### Combinação de filtros
 
@@ -253,12 +320,37 @@ GET /api/condominios?NomeDoCondominio=Residencial&Pagina=1
       "numeroDeTorres": 2,
       "numeroDeUnidades": 120,
       "status": "Ativo",
-      "dataInicial_Administracao": "2024-01-01T00:00:00",
-      "dataFinal_Administracao": null,
+      "dataInicial_Administracao": "2024-01-01",
+      "dataFinal_Administracao": "",
       "nomeGerenteDeContas": "Nome do Gerente",
       "nomeSindico": "Nome do Síndico"
     }
   ]
+}
+```
+
+---
+
+## Exemplo de resposta por ID
+
+```json
+{
+  "codigoDoCondominio": "0001",
+  "cnpjDoCondominio": "12345678000101",
+  "nomeDoCondominio": "Residencial Exemplo",
+  "endereco": "Rua Exemplo",
+  "numeroDoEndereco": "123",
+  "estadoDoEndereco": "RS",
+  "cidadeDoEndereco": "Porto Alegre",
+  "bairroDoEndereco": "Centro",
+  "cepDoEndereco": "90000000",
+  "numeroDeTorres": 2,
+  "numeroDeUnidades": 120,
+  "status": "Ativo",
+  "dataInicial_Administracao": "2024-01-01",
+  "dataFinal_Administracao": "",
+  "nomeGerenteDeContas": "Nome do Gerente",
+  "nomeSindico": "Nome do Síndico"
 }
 ```
 
@@ -308,7 +400,8 @@ A API possui um middleware global para padronizar respostas de erro.
 {
   "sucesso": false,
   "status": 404,
-  "mensagem": "condominio nao encontrado."
+  "mensagem": "condomínio com id 9999 não foi encontrado.",
+  "caminho": "/api/condominios/9999"
 }
 ```
 
@@ -338,16 +431,64 @@ Requisições sem token ou com token inválido retornam:
 
 ---
 
-## Cache
+## Cache persistente
 
-A API utiliza cache em memória com `IMemoryCache`.
+A API utiliza cache persistente em uma tabela `cache` no PostgreSQL/Supabase.
 
-O cache foi aplicado na camada de service para reduzir consultas repetidas ao banco de dados e manter o controller simples.
+O cache é aplicado nas consultas de:
 
-Atualmente, o cache é utilizado em consultas como:
+- condomínio por ID;
+- condomínios por nome.
 
-- busca por ID;
-- busca por nome do condomínio.
+Consultas com outros filtros, como código do condomínio ou CNPJ, continuam sendo executadas diretamente na tabela `condominios`.
+
+Um registro de cache é considerado válido quando:
+
+```sql
+chave_cache = chave da consulta
+AND expirado_em > now()
+AND invalidado_em IS NULL
+```
+
+Quando não existe cache válido, a API consulta a tabela `condominios`, retorna a resposta e cria um novo registro na tabela `cache`.
+
+Os registros possuem expiração fixa de 15 minutos.
+
+---
+
+### Estrutura da tabela `cache`
+
+| Campo | Descrição |
+| --- | --- |
+| `id` | Identificador único do registro de cache |
+| `chave_cache` | Chave única da consulta |
+| `url_da_consulta` | URL da consulta realizada |
+| `metodo_http` | Método HTTP utilizado |
+| `tipo_consulta` | Tipo da consulta cacheada |
+| `entidade` | Entidade relacionada ao cache |
+| `entidade_id` | ID da entidade, quando aplicável |
+| `resposta` | JSON da resposta retornada pela API |
+| `status_code` | Status HTTP associado à resposta |
+| `criado_em` | Data e hora de criação do cache |
+| `expirado_em` | Data e hora de expiração do cache |
+| `invalidado_em` | Data e hora de invalidação do cache |
+| `motivo_invalidacao` | Motivo da invalidação |
+
+---
+
+### Invalidação automática
+
+A invalidação do cache é feita por trigger no PostgreSQL/Supabase.
+
+Quando ocorre `INSERT`, `UPDATE` ou `DELETE` na tabela `condominios`, a trigger invalida os caches relacionados.
+
+A regra aplicada é:
+
+- `UPDATE`: invalida o cache por ID do condomínio alterado e todos os caches por nome;
+- `DELETE`: invalida o cache por ID do condomínio removido e todos os caches por nome;
+- `INSERT`: invalida todos os caches por nome.
+
+A invalidação preenche os campos `invalidado_em` e `motivo_invalidacao`.
 
 ---
 
@@ -378,7 +519,14 @@ Antes de executar o projeto, instale:
 - .NET 10 SDK;
 - Git;
 - Docker, caso deseje executar testes de integração com Testcontainers;
-- acesso a um banco PostgreSQL ou Supabase.
+- acesso a um banco PostgreSQL ou Supabase;
+- ferramenta `dotnet-ef`, caso ainda não esteja instalada.
+
+Para instalar a ferramenta do Entity Framework:
+
+```bash
+dotnet tool install --global dotnet-ef
+```
 
 ---
 
@@ -413,7 +561,19 @@ dotnet restore
 
 ---
 
-### 4. Compilar o projeto
+### 4. Aplicar migrations no banco
+
+Antes de executar a API em um banco novo, aplique as migrations:
+
+```bash
+dotnet ef database update --project src/AuxiAPI.WebApi.csproj
+```
+
+As migrations criam a estrutura necessária no banco, incluindo a tabela `cache` e a trigger de invalidação automática.
+
+---
+
+### 5. Compilar o projeto
 
 ```bash
 dotnet build
@@ -421,7 +581,7 @@ dotnet build
 
 ---
 
-### 5. Executar a API
+### 6. Executar a API
 
 ```bash
 dotnet run --project src/AuxiAPI.WebApi.csproj
@@ -429,7 +589,7 @@ dotnet run --project src/AuxiAPI.WebApi.csproj
 
 ---
 
-### 6. Acessar o Swagger
+### 7. Acessar o Swagger
 
 Com a aplicação rodando, acesse:
 
@@ -505,9 +665,11 @@ Os testes estão separados por responsabilidade.
 ```text
 test/
 ├── ControllersTest/
-├── ServicesTest/
-├── RepositoriesTest/
+├── DTOsTest/
 ├── IntegrationTest/
+├── MiddlewaresTest/
+├── RepositoriesTest/
+├── ServicesTest/
 └── TestInfrastructure/
 ```
 
@@ -515,17 +677,29 @@ test/
 
 Testa a camada de controller, validando se as requisições HTTP retornam os status codes e objetos esperados.
 
+### DTOsTest
+
+Testa regras específicas dos DTOs de entrada, como normalização de CNPJ.
+
+### MiddlewaresTest
+
+Testa os middlewares da aplicação, principalmente o tratamento global de exceções.
+
 ### ServicesTest
 
-Testa as regras da camada de service, incluindo validações, paginação, cache e tratamento de dados não encontrados.
+Testa as regras da camada de service, incluindo validações, paginação, mapeamento de entidade para DTO, cache por ID, cache por nome e tratamento de dados não encontrados.
 
 ### RepositoriesTest
 
-Testa o acesso a dados, filtros e consultas realizadas pelo repository.
+Testa o acesso a dados, filtros, paginação, busca por ID e regras de leitura/escrita da tabela de cache.
 
 ### IntegrationTest
 
-Testa o comportamento da API de forma integrada, simulando chamadas reais aos endpoints.
+Testa o comportamento da API de forma integrada, incluindo autenticação, endpoints, tratamento de erros e invalidação automática do cache via trigger.
+
+### TestInfrastructure
+
+Contém estruturas auxiliares para testes, como autenticação fake, autenticação inválida e fixture de PostgreSQL com Testcontainers.
 
 ---
 
@@ -542,9 +716,11 @@ O projeto aplica boas práticas importantes para APIs REST:
 - status codes adequados;
 - documentação com Swagger;
 - autenticação com JWT;
-- cache em memória;
+- cache persistente em banco de dados;
+- invalidação automática de cache via trigger;
 - consultas de leitura com `AsNoTracking()`;
-- testes automatizados.
+- testes automatizados;
+- testes de integração com banco em container.
 
 ---
 
@@ -578,11 +754,28 @@ Isso melhora a performance da API e reduz o custo de tráfego entre cliente e se
 
 ---
 
-### Por que usar cache?
+### Por que usar cache persistente?
 
 O cache reduz consultas repetidas ao banco de dados em cenários de leitura frequente.
 
-Como o endpoint de Condomínios é um endpoint de consulta, o uso de cache ajuda a melhorar o tempo de resposta.
+Neste projeto, o cache foi implementado em uma tabela no PostgreSQL/Supabase para permitir:
+
+- visualizar os registros cacheados;
+- controlar data de criação e expiração;
+- invalidar registros quando os dados originais forem alterados;
+- testar o comportamento do cache de forma mais clara.
+
+A abordagem foi aplicada ao endpoint de Condomínios nas consultas por ID e por nome.
+
+---
+
+### Por que usar trigger para invalidação?
+
+Como o cache fica salvo em uma tabela do banco, a invalidação precisa acompanhar alterações feitas na tabela de origem.
+
+A trigger garante que, quando a tabela `condominios` for alterada, os caches relacionados sejam invalidados mesmo que a alteração não tenha sido feita diretamente pela API.
+
+Isso evita que a aplicação retorne dados antigos após alterações no banco.
 
 ---
 
@@ -598,7 +791,7 @@ Ele permite que outros desenvolvedores entendam rapidamente quais endpoints exis
 
 A API retorna dados em formato JSON.
 
-Exemplo de sucesso:
+Exemplo de sucesso por ID:
 
 ```json
 {
@@ -608,13 +801,32 @@ Exemplo de sucesso:
 }
 ```
 
+Exemplo de sucesso paginado:
+
+```json
+{
+  "pagina": 1,
+  "tamanhoPagina": 10,
+  "totalItens": 1,
+  "totalPaginas": 1,
+  "itens": [
+    {
+      "codigoDoCondominio": "0001",
+      "cnpjDoCondominio": "12345678000101",
+      "nomeDoCondominio": "Residencial Exemplo"
+    }
+  ]
+}
+```
+
 Exemplo de erro:
 
 ```json
 {
   "sucesso": false,
   "status": 404,
-  "mensagem": "condominio nao encontrado."
+  "mensagem": "condomínio com id 9999 não foi encontrado.",
+  "caminho": "/api/condominios/9999"
 }
 ```
 
@@ -627,4 +839,3 @@ Exemplo de erro:
 - **Gestor apoiador:** Alexandre Cambraia
 - **Tech Lead:** Rodrigo Silva
 - **Área:** Tecnologia da Informação
-
