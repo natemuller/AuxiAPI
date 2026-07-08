@@ -2,16 +2,15 @@ using AuxiAPI.src.Entities;
 using AuxiAPI.src.Repositories;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Common;
-using AuxiAPI.src.Common.Cache;
 using AuxiAPI.src.Common.Text;
 
 namespace AuxiAPI.src.Services
 {
-    public class CondominioService(ICondominioRepository repository, ICacheService cacheService)
+    public class CondominioService(
+        ICondominioRepository repository,
+        IDatabaseCacheService cacheService)
     {
         private const int TamanhoPagina = 10;
-        private static readonly TimeSpan TempoCachePorId = TimeSpan.FromMinutes(5);
-        private static readonly TimeSpan TempoCachePorNome = TimeSpan.FromMinutes(2);
         
         public async Task<ResultadoPaginadoDto<InformacoesCondominioDto>> ListarCondominiosAsync(
             VisualizarCondominioQuery query)
@@ -22,29 +21,56 @@ namespace AuxiAPI.src.Services
             if (!DeveUsarCachePorNome(query))
                 return await ListarSemCacheAsync(query);
 
-            var nomeNormalizado = TextNormalizer.NormalizarBusca(query.NomeDoCondominio);
-            var cacheKey = CondominioCacheKeys.PorNome(nomeNormalizado, query.Pagina);
+            var nomeNormalizado = TextNormalizer.NormalizarBusca(query.NomeDoCondominio!.Trim());
 
-            return await cacheService.GetOrCreateAsync(
-                cacheKey,
-                TempoCachePorNome,
-                () => ListarSemCacheAsync(query));
+            var urlDaConsulta =
+                $"/api/condominios?nomeDoCondominio={Uri.EscapeDataString(nomeNormalizado)}&pagina={query.Pagina}";
+
+            var chaveCache = $"GET:{urlDaConsulta}";
+
+            var cache = await cacheService
+                .ObterAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>(chaveCache);
+
+            if (cache is not null)
+                return cache;
+
+            var resultado = await ListarSemCacheAsync(query);
+
+            await cacheService.SalvarAsync(
+                chaveCache,
+                urlDaConsulta,
+                tipoConsulta: "CONDOMINIO_NOME",
+                entidade: "condominios",
+                entidadeId: null,
+                resposta: resultado);
+
+            return resultado;
         }
 
         public async Task<InformacoesCondominioDto> ObterPorIdAsync(int id)
         {
-            var cacheKey = CondominioCacheKeys.PorId(id);
+            var urlDaConsulta = $"/api/condominios/{id}";
+            var chaveCache = $"GET:{urlDaConsulta}";
 
-            return await cacheService.GetOrCreateAsync(
-                cacheKey,
-                TempoCachePorId,
-                async () =>
-                {
-                    var condominio = await repository.ObterPorIdAsync(id)
-                        ?? throw new KeyNotFoundException($"condomínio com id {id} não foi encontrado.");
+            var cache = await cacheService.ObterAsync<InformacoesCondominioDto>(chaveCache);
 
-                    return MapearParaDto(condominio);
-                });
+            if (cache is not null)
+                return cache;
+
+            var condominio = await repository.ObterPorIdAsync(id)
+                ?? throw new KeyNotFoundException($"condomínio com id {id} não foi encontrado.");
+
+            var resultado = MapearParaDto(condominio);
+
+            await cacheService.SalvarAsync(
+                chaveCache,
+                urlDaConsulta,
+                tipoConsulta: "CONDOMINIO_ID",
+                entidade: "condominios",
+                entidadeId: id,
+                resposta: resultado);
+
+            return resultado;
         }
 
         private async Task<ResultadoPaginadoDto<InformacoesCondominioDto>> ListarSemCacheAsync(

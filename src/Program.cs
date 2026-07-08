@@ -1,4 +1,3 @@
-using AuxiAPI.src.Common.Cache;
 using AuxiAPI.src.Contexts;
 using AuxiAPI.src.Middlewares;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +26,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 
 builder.Services.AddScoped<AuxiAPI.src.Repositories.ICondominioRepository, AuxiAPI.src.Repositories.CondominioRepository>();
+builder.Services.AddScoped<AuxiAPI.src.Repositories.ICacheRepository, AuxiAPI.src.Repositories.CacheRepository>();
+
+builder.Services.AddScoped<AuxiAPI.src.Services.IDatabaseCacheService, AuxiAPI.src.Services.DatabaseCacheService>();
 builder.Services.AddScoped<AuxiAPI.src.Services.CondominioService>();
 
 var supabaseUrl = builder.Configuration["Supabase:Url"] ?? "https://gsmzasmtlllvzpjppfom.supabase.co";
@@ -73,10 +75,6 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddMemoryCache();
-builder.Services.AddScoped<ICacheService, MemoryCacheService>();
-builder.Services.AddResponseCaching();
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -105,8 +103,6 @@ app.UseStatusCodePages(async context =>
         });
     }
 });
-
-app.UseResponseCaching();
 
 app.UseStaticFiles();
 
