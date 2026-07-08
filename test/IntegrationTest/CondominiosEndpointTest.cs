@@ -4,7 +4,6 @@ using System.Text.Json;
 using AuxiAPI.src.Contexts;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Entities;
-using AuxiAPI.Tests.ServicesTest;
 using AuxiAPI.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
@@ -20,29 +19,29 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
     private readonly PostgresTestFixture _fixture = fixture;
     
     private readonly WebApplicationFactory<Program> _factory = new WebApplicationFactory<Program>()
-    .WithWebHostBuilder(builder =>
-    {
-        builder.ConfigureAppConfiguration((_, configBuilder) =>
+        .WithWebHostBuilder(builder =>
         {
-            configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+            builder.ConfigureAppConfiguration((_, configBuilder) =>
             {
-                ["ConnectionStrings:SupabaseConnection"] = fixture.ConnectionString
+                configBuilder.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:SupabaseConnection"] = fixture.ConnectionString
+                });
+            });
+
+            builder.ConfigureTestServices(services =>
+            {
+                services
+                    .AddAuthentication(options =>
+                    {
+                        options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
+                        options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
+                    })
+                    .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                        TestAuthHandler.SchemeName,
+                        _ => { });
             });
         });
-
-        builder.ConfigureTestServices(services =>
-        {
-            services
-                .AddAuthentication(options =>
-                {
-                    options.DefaultAuthenticateScheme = TestAuthHandler.SchemeName;
-                    options.DefaultChallengeScheme = TestAuthHandler.SchemeName;
-                })
-                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
-                    TestAuthHandler.SchemeName,
-                    _ => { });
-        });
-    });
 
     [Fact]
     public async Task GET_api_condominios_DeveRetornar200_ComLista()
@@ -58,9 +57,14 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<List<InformacoesCondominioDto>>();
+
+        var body = await response.Content
+            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+
         Assert.NotNull(body);
-        Assert.NotEmpty(body);
+        Assert.NotEmpty(body!.Itens);
+        Assert.Equal(1, body.Pagina);
+        Assert.Equal(10, body.TamanhoPagina);
     }
 
     [Fact]
@@ -77,8 +81,13 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios?codigoDoCondominio=1");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<List<InformacoesCondominioDto>>();
-        var item = Assert.Single(body!);
+
+        var body = await response.Content
+            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+
+        Assert.NotNull(body);
+
+        var item = Assert.Single(body!.Itens);
         Assert.Equal("0001", item.CodigoDoCondominio);
     }
 
@@ -96,8 +105,13 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios?cnpjDoCondominio=12.345.678/0001-01");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<List<InformacoesCondominioDto>>();
-        var item = Assert.Single(body!);
+
+        var body = await response.Content
+            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+
+        Assert.NotNull(body);
+
+        var item = Assert.Single(body!.Itens);
         Assert.Equal("12345678000101", item.CNPJDoCondominio);
     }
 
@@ -115,8 +129,13 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios?nomeDoCondominio=brasil");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<List<InformacoesCondominioDto>>();
-        var item = Assert.Single(body!);
+
+        var body = await response.Content
+            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+
+        Assert.NotNull(body);
+
+        var item = Assert.Single(body!.Itens);
         Assert.Equal("Residencial Brasil-Hexa", item.NomeDoCondominio);
     }
 
@@ -134,9 +153,13 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios?codigoDoCondominio=9999");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var body = await response.Content.ReadFromJsonAsync<List<InformacoesCondominioDto>>();
+
+        var body = await response.Content
+            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+
         Assert.NotNull(body);
-        Assert.Empty(body);
+        Assert.Empty(body!.Itens);
+        Assert.Equal(0, body.TotalItens);
     }
 
     [Fact]
@@ -153,7 +176,9 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios/1");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
         var body = await response.Content.ReadFromJsonAsync<InformacoesCondominioDto>();
+
         Assert.NotNull(body);
         Assert.Equal("0001", body!.CodigoDoCondominio);
     }
@@ -172,7 +197,9 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios/9999");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
         Assert.False(body.GetProperty("sucesso").GetBoolean());
         Assert.Equal(404, body.GetProperty("status").GetInt32());
         Assert.Contains("não foi encontrado", body.GetProperty("mensagem").GetString());
@@ -191,7 +218,9 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios?codigoDoCondominio=1234567890123456");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
         Assert.False(body.GetProperty("sucesso").GetBoolean());
         Assert.Equal(400, body.GetProperty("status").GetInt32());
         Assert.Contains("codigo de busca", body.GetProperty("mensagem").GetString());
@@ -209,7 +238,9 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var response = await client.GetAsync("/api/condominios?cnpjDoCondominio=1234567890123456");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
         Assert.False(body.GetProperty("sucesso").GetBoolean());
         Assert.Equal(400, body.GetProperty("status").GetInt32());
         Assert.Contains("cnpj de busca", body.GetProperty("mensagem").GetString());
@@ -224,11 +255,14 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         }
 
         var nome = new string('n', 201);
+
         using var client = _factory.CreateClient();
         var response = await client.GetAsync($"/api/condominios?nomeDoCondominio={nome}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+
         Assert.False(body.GetProperty("sucesso").GetBoolean());
         Assert.Equal(400, body.GetProperty("status").GetInt32());
         Assert.Contains("nome de busca", body.GetProperty("mensagem").GetString());
@@ -237,11 +271,18 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
     private async Task SeedAsync()
     {
         using var scope = _factory.Services.CreateScope();
+
         var context = scope.ServiceProvider.GetRequiredService<CondominiosDbContext>();
+
         await context.Database.EnsureCreatedAsync();
+
+        context.Cache.RemoveRange(context.Cache);
         context.Condominios.RemoveRange(context.Condominios);
         await context.SaveChangesAsync();
-        context.Condominios.AddRange(CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
+
+        context.Condominios.AddRange(
+            CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
+
         await context.SaveChangesAsync();
     }
 

@@ -1,9 +1,7 @@
-using AuxiAPI.src.Common.Cache;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Entities;
 using AuxiAPI.src.Repositories;
 using AuxiAPI.src.Services;
-using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace AuxiAPI.Tests.ServicesTest;
@@ -20,7 +18,8 @@ public class CondominioServiceCacheTest
             .ReturnsAsync(CreateCondominio())
             .ThrowsAsync(new Exception("Repository foi chamado de novo. Cache não funcionou."));
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         var primeiraConsulta = await service.ObterPorIdAsync(1);
         var segundaConsulta = await service.ObterPorIdAsync(1);
@@ -46,7 +45,8 @@ public class CondominioServiceCacheTest
                 CreateCondominio("0001", "Residencial Pelé")
             }, 1));
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         var primeiraQuery = new VisualizarCondominioQuery
         {
@@ -68,7 +68,7 @@ public class CondominioServiceCacheTest
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()),
             Times.Once);
-        }
+    }
 
     [Fact]
     public async Task ListarCondominiosAsync_DeveRetornarDoCache_NaSegundaConsultaPorNome()
@@ -85,7 +85,8 @@ public class CondominioServiceCacheTest
             }, 1))
             .ThrowsAsync(new Exception("Repository foi chamado de novo. Cache por nome não funcionou."));
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         var query = new VisualizarCondominioQuery
         {
@@ -128,7 +129,8 @@ public class CondominioServiceCacheTest
                 CreateCondominio()
             }, 1));
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         var primeiraQuery = new VisualizarCondominioQuery
         {
@@ -171,7 +173,8 @@ public class CondominioServiceCacheTest
                 CreateCondominio("0011", "Residencial Página 2")
             }, 20));
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         var primeiraQuery = new VisualizarCondominioQuery
         {
@@ -218,7 +221,8 @@ public class CondominioServiceCacheTest
                 CreateCondominio()
             }, 1));
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         var query = new VisualizarCondominioQuery
         {
@@ -234,6 +238,9 @@ public class CondominioServiceCacheTest
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()),
             Times.Exactly(2));
+
+        Assert.Equal(0, cacheService.TotalDeBuscas);
+        Assert.Equal(0, cacheService.TotalDeSalvamentos);
     }
 
     [Fact]
@@ -250,7 +257,8 @@ public class CondominioServiceCacheTest
                 CreateCondominio()
             }, 1));
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         var query = new VisualizarCondominioQuery();
 
@@ -262,6 +270,9 @@ public class CondominioServiceCacheTest
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()),
             Times.Exactly(2));
+
+        Assert.Equal(0, cacheService.TotalDeBuscas);
+        Assert.Equal(0, cacheService.TotalDeSalvamentos);
     }
 
     [Fact]
@@ -273,19 +284,22 @@ public class CondominioServiceCacheTest
             .Setup(x => x.ObterPorIdAsync(9999))
             .ReturnsAsync((Condominio?)null);
 
-        var service = CriarService(repository.Object);
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
 
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorIdAsync(9999));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorIdAsync(9999));
 
         repository.Verify(x => x.ObterPorIdAsync(9999), Times.Exactly(2));
+
+        Assert.Equal(2, cacheService.TotalDeBuscas);
+        Assert.Equal(0, cacheService.TotalDeSalvamentos);
     }
 
-    private static CondominioService CriarService(ICondominioRepository repository)
+    private static CondominioService CriarService(
+        ICondominioRepository repository,
+        IDatabaseCacheService cacheService)
     {
-        var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var cacheService = new MemoryCacheService(memoryCache);
-
         return new CondominioService(repository, cacheService);
     }
 
@@ -312,5 +326,41 @@ public class CondominioServiceCacheTest
             NomeGerenteDeContas = "Gerente",
             NomeSindico = "Síndico"
         };
+    }
+
+    private sealed class FakeDatabaseCacheService : IDatabaseCacheService
+    {
+        private readonly Dictionary<string, object> _cache = new();
+
+        public int TotalDeBuscas { get; private set; }
+        public int TotalDeSalvamentos { get; private set; }
+
+        public Task<T?> ObterAsync<T>(string chaveCache) where T : class
+        {
+            TotalDeBuscas++;
+
+            if (_cache.TryGetValue(chaveCache, out var resposta)
+                && resposta is T respostaTipada)
+            {
+                return Task.FromResult<T?>(respostaTipada);
+            }
+
+            return Task.FromResult<T?>(null);
+        }
+
+        public Task SalvarAsync<T>(
+            string chaveCache,
+            string urlDaConsulta,
+            string tipoConsulta,
+            string entidade,
+            int? entidadeId,
+            T resposta,
+            int statusCode = 200) where T : class
+        {
+            TotalDeSalvamentos++;
+            _cache[chaveCache] = resposta;
+
+            return Task.CompletedTask;
+        }
     }
 }

@@ -5,8 +5,6 @@ using AuxiAPI.src.Repositories;
 using AuxiAPI.src.Services;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using AuxiAPI.src.Common.Cache;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace AuxiAPI.Tests.ControllersTest;
 
@@ -43,7 +41,10 @@ public class CondominiosControllerTest
     public async Task GetById_DeveRetornarOk_QuandoIdExistir()
     {
         var repository = new Mock<ICondominioRepository>();
-        repository.Setup(x => x.ObterPorIdAsync(1)).ReturnsAsync(CreateCondominio());
+
+        repository
+            .Setup(x => x.ObterPorIdAsync(1))
+            .ReturnsAsync(CreateCondominio());
 
         var controller = new CondominiosController(CriarService(repository.Object));
 
@@ -51,14 +52,45 @@ public class CondominiosControllerTest
 
         var okResult = Assert.IsType<OkObjectResult>(resultado);
         var body = Assert.IsType<InformacoesCondominioDto>(okResult.Value);
+
         Assert.Equal("0001", body.CodigoDoCondominio);
     }
 
     private static CondominioService CriarService(ICondominioRepository repository)
     {
-        var memoryCache = new MemoryCache(new MemoryCacheOptions());
-        var cacheService = new MemoryCacheService(memoryCache);
-        return new CondominioService(repository, cacheService);
+        var cacheService = new Mock<IDatabaseCacheService>();
+
+        cacheService
+            .Setup(x => x.ObterAsync<InformacoesCondominioDto>(It.IsAny<string>()))
+            .ReturnsAsync((InformacoesCondominioDto?)null);
+
+        cacheService
+            .Setup(x => x.ObterAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>(It.IsAny<string>()))
+            .ReturnsAsync((ResultadoPaginadoDto<InformacoesCondominioDto>?)null);
+
+        cacheService
+            .Setup(x => x.SalvarAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<InformacoesCondominioDto>(),
+                It.IsAny<int>()))
+            .Returns(Task.CompletedTask);
+
+        cacheService
+            .Setup(x => x.SalvarAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<ResultadoPaginadoDto<InformacoesCondominioDto>>(),
+                It.IsAny<int>()))
+            .Returns(Task.CompletedTask);
+
+        return new CondominioService(repository, cacheService.Object);
     }
 
     private static Condominio CreateCondominio()

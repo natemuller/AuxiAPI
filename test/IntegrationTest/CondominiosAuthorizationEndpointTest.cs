@@ -7,7 +7,6 @@ using AuxiAPI.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
@@ -53,10 +52,18 @@ public class CondominiosAuthorizationEndpointTest(PostgresTestFixture fixture, I
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var body = await response.Content.ReadFromJsonAsync<List<InformacoesCondominioDto>>();
+        var body = await response.Content
+            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
 
         Assert.NotNull(body);
-        Assert.NotEmpty(body);
+        Assert.NotEmpty(body!.Itens);
+        Assert.Equal(1, body.Pagina);
+        Assert.Equal(10, body.TamanhoPagina);
+        Assert.Equal(1, body.TotalItens);
+
+        var item = Assert.Single(body.Itens);
+        Assert.Equal("0001", item.CodigoDoCondominio);
+        Assert.Equal("Residencial Brasil-Hexa", item.NomeDoCondominio);
     }
 
     private WebApplicationFactory<Program> CriarFactoryNaoAutenticada()
@@ -122,6 +129,7 @@ public class CondominiosAuthorizationEndpointTest(PostgresTestFixture fixture, I
 
         await context.Database.EnsureCreatedAsync();
 
+        context.Cache.RemoveRange(context.Cache);
         context.Condominios.RemoveRange(context.Condominios);
         await context.SaveChangesAsync();
 
