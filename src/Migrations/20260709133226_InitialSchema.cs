@@ -1,12 +1,13 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace AuxiAPI.WebApi.Migrations
 {
     /// <inheritdoc />
-    public partial class CreateCacheTable : Migration
+    public partial class InitialSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -32,6 +33,34 @@ namespace AuxiAPI.WebApi.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_cache", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "condominios",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    codigoDoCondominio = table.Column<string>(type: "text", nullable: false),
+                    cnpjDoCondominio = table.Column<string>(type: "text", nullable: false),
+                    nomeDoCondominio = table.Column<string>(type: "text", nullable: false),
+                    endereco = table.Column<string>(type: "text", nullable: false),
+                    numeroDoEndereco = table.Column<string>(type: "text", nullable: false),
+                    estadoDoEndereco = table.Column<string>(type: "text", nullable: false),
+                    cidadeDoEndereco = table.Column<string>(type: "text", nullable: false),
+                    bairroDoEndereco = table.Column<string>(type: "text", nullable: false),
+                    cepDoEndereco = table.Column<string>(type: "text", nullable: false),
+                    numeroDeTorres = table.Column<int>(type: "integer", nullable: false),
+                    numeroDeUnidades = table.Column<int>(type: "integer", nullable: false),
+                    status = table.Column<string>(type: "text", nullable: false),
+                    dataInicial_Administracao = table.Column<string>(type: "text", nullable: false),
+                    dataFinal_Administracao = table.Column<string>(type: "text", nullable: false),
+                    nomeGerenteDeContas = table.Column<string>(type: "text", nullable: false),
+                    nomeSindico = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_condominios", x => x.id);
                 });
 
             migrationBuilder.CreateIndex(
@@ -60,6 +89,9 @@ namespace AuxiAPI.WebApi.Migrations
         {
             migrationBuilder.DropTable(
                 name: "cache");
+
+            migrationBuilder.DropTable(
+                name: "condominios");
         }
     }
 }

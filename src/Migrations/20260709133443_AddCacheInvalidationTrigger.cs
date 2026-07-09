@@ -4,13 +4,13 @@
 
 namespace AuxiAPI.WebApi.Migrations
 {
-    /// <inheritdoc />
     public partial class AddCacheInvalidationTrigger : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
+                CREATE EXTENSION IF NOT EXISTS unaccent;
+
                 CREATE OR REPLACE FUNCTION public.invalidar_cache_condominios()
                 RETURNS trigger
                 LANGUAGE plpgsql
@@ -71,7 +71,6 @@ namespace AuxiAPI.WebApi.Migrations
             """);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""
