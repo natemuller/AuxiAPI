@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using AuxiAPI.src.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -75,7 +76,46 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.Configure<DevTokenOptions>(
+    builder.Configuration.GetSection("DevToken"));
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHttpClient();
+
+    builder.Services.AddSingleton<IDevTokenService, SupabaseDevTokenService>();
+
+    builder.Services.AddHostedService<DevTokenStartupService>();
+}
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment() &&
+    app.Configuration.GetValue<bool>("DevToken:ExposeEndpoint"))
+{
+    var endpointPath = app.Configuration["DevToken:EndpointPath"] ?? "/dev/token";
+
+    app.MapGet(endpointPath, (IDevTokenService devTokenService) =>
+    {
+        if (!devTokenService.PossuiToken)
+        {
+            return Results.Problem(
+                title: "Token automático não carregado",
+                detail: "Nenhum token de desenvolvimento foi carregado em memória.",
+                statusCode: StatusCodes.Status503ServiceUnavailable
+            );
+        }
+
+        return Results.Ok(new
+        {
+            tokenType = devTokenService.TokenType,
+            accessToken = devTokenService.AccessToken,
+            authorizationHeader = devTokenService.ObterAuthorizationHeader(),
+            expiresAtUtc = devTokenService.ExpiraEmUtc
+        });
+    })
+    .AllowAnonymous();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -107,6 +147,13 @@ app.UseStatusCodePages(async context =>
 app.UseStaticFiles();
 
 app.UseHttpsRedirection();
+
+app.UseRouting();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseMiddleware<DevTokenInjectionMiddleware>();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
