@@ -2,14 +2,13 @@ using AuxiAPI.src.Entities;
 using AuxiAPI.src.Contexts;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Common.Text;
-using AuxiAPI.src.Mappers;
 using Microsoft.EntityFrameworkCore;
 
 namespace AuxiAPI.src.Repositories
 {
     public class CondominioRepository(CondominiosDbContext context) : ICondominioRepository
     {
-        public async Task<(List<Condominio> Itens, int TotalItens)> ListarAsync(
+        public async Task<(List<AtlasCondominio> Itens, int TotalItens)> ListarAsync(
             VisualizarCondominioQuery filtro,
             int tamanhoPagina)
         {
@@ -17,20 +16,10 @@ namespace AuxiAPI.src.Repositories
                 .AsNoTracking()
                 .AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(filtro.CodigoDoCondominio))
-            {
-                var codigoInformado = filtro.CodigoDoCondominio.Trim();
-
-                if (!int.TryParse(codigoInformado, out var codCondom))
-                    return (new List<Condominio>(), 0);
-
-                query = query.Where(c => c.CodCondom == codCondom);
-            }
-
-            if (!string.IsNullOrWhiteSpace(filtro.CNPJDoCondominio))
+            if (!string.IsNullOrWhiteSpace(filtro.Cnpj))
             {
                 var cnpj = new string(
-                    filtro.CNPJDoCondominio.Where(char.IsDigit).ToArray()
+                    filtro.Cnpj.Where(char.IsDigit).ToArray()
                 );
 
                 var cnpjMascarado = MascararCnpj(cnpj);
@@ -41,10 +30,10 @@ namespace AuxiAPI.src.Repositories
                 );
             }
 
-            if (!string.IsNullOrWhiteSpace(filtro.NomeDoCondominio))
+            if (!string.IsNullOrWhiteSpace(filtro.NomeCondom))
             {
                 var nomeNormalizado = TextNormalizer.NormalizarBusca(
-                    filtro.NomeDoCondominio.Trim()
+                    filtro.NomeCondom.Trim()
                 );
 
                 query = query.Where(c =>
@@ -60,26 +49,20 @@ namespace AuxiAPI.src.Repositories
 
             var registrosParaPular = (filtro.Pagina - 1) * tamanhoPagina;
 
-            var atlasItens = await query
+            var itens = await query
                 .OrderBy(c => c.CodCondom)
                 .Skip(registrosParaPular)
                 .Take(tamanhoPagina)
                 .ToListAsync();
 
-            var itens = atlasItens
-                .Select(c => c.ToCondominio())
-                .ToList();
-
             return (itens, totalItens);
         }
 
-        public async Task<Condominio?> ObterPorIdAsync(int id)
+        public async Task<AtlasCondominio?> ObterPorIdAsync(int id)
         {
-            var atlasCondominio = await context.AtlasCondominios
+            return await context.AtlasCondominios
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.CodCondom == id);
-
-            return atlasCondominio?.ToCondominio();
         }
 
         private static string MascararCnpj(string cnpj)

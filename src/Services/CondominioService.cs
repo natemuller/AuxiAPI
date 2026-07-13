@@ -1,8 +1,8 @@
-using AuxiAPI.src.Entities;
 using AuxiAPI.src.Repositories;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Common;
 using AuxiAPI.src.Common.Text;
+using AuxiAPI.src.Mappers;
 
 namespace AuxiAPI.src.Services
 {
@@ -11,8 +11,8 @@ namespace AuxiAPI.src.Services
         IDatabaseCacheService cacheService)
     {
         private const int TamanhoPagina = 10;
-        
-        public async Task<ResultadoPaginadoDto<InformacoesCondominioDto>> ListarCondominiosAsync(
+
+        public async Task<ResultadoPaginadoDto<AtlasCondominioDto>> ListarCondominiosAsync(
             VisualizarCondominioQuery query)
         {
             ValidarFiltros(query);
@@ -21,15 +21,15 @@ namespace AuxiAPI.src.Services
             if (!DeveUsarCachePorNome(query))
                 return await ListarSemCacheAsync(query);
 
-            var nomeNormalizado = TextNormalizer.NormalizarBusca(query.NomeDoCondominio!.Trim());
+            var nomeNormalizado = TextNormalizer.NormalizarBusca(query.NomeCondom!.Trim());
 
             var urlDaConsulta =
-                $"/api/condominios?nomeDoCondominio={Uri.EscapeDataString(nomeNormalizado)}&pagina={query.Pagina}";
+                $"/api/condominios?nomeCondom={Uri.EscapeDataString(nomeNormalizado)}&pagina={query.Pagina}";
 
             var chaveCache = $"GET:{urlDaConsulta}";
 
             var cache = await cacheService
-                .ObterAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>(chaveCache);
+                .ObterAsync<ResultadoPaginadoDto<AtlasCondominioDto>>(chaveCache);
 
             if (cache is not null)
                 return cache;
@@ -40,49 +40,49 @@ namespace AuxiAPI.src.Services
                 chaveCache,
                 urlDaConsulta,
                 tipoConsulta: "CONDOMINIO_NOME",
-                entidade: "condominios",
+                entidade: "atlas_condominios",
                 entidadeId: null,
                 resposta: resultado);
 
             return resultado;
         }
 
-        public async Task<InformacoesCondominioDto> ObterPorIdAsync(int id)
+        public async Task<AtlasCondominioDto> ObterPorIdAsync(int id)
         {
             var urlDaConsulta = $"/api/condominios/{id}";
             var chaveCache = $"GET:{urlDaConsulta}";
 
-            var cache = await cacheService.ObterAsync<InformacoesCondominioDto>(chaveCache);
+            var cache = await cacheService.ObterAsync<AtlasCondominioDto>(chaveCache);
 
             if (cache is not null)
                 return cache;
 
             var condominio = await repository.ObterPorIdAsync(id)
-                ?? throw new KeyNotFoundException($"condomínio com id {id} não foi encontrado.");
+                ?? throw new KeyNotFoundException($"condomínio com codcondom {id} não foi encontrado.");
 
-            var resultado = MapearParaDto(condominio);
+            var resultado = condominio.ToDto();
 
             await cacheService.SalvarAsync(
                 chaveCache,
                 urlDaConsulta,
                 tipoConsulta: "CONDOMINIO_ID",
-                entidade: "condominios",
+                entidade: "atlas_condominios",
                 entidadeId: id,
                 resposta: resultado);
 
             return resultado;
         }
 
-        private async Task<ResultadoPaginadoDto<InformacoesCondominioDto>> ListarSemCacheAsync(
+        private async Task<ResultadoPaginadoDto<AtlasCondominioDto>> ListarSemCacheAsync(
             VisualizarCondominioQuery query)
         {
             var resultado = await repository.ListarAsync(query, TamanhoPagina);
 
             var itens = resultado.Itens
-                .Select(MapearParaDto)
+                .Select(c => c.ToDto())
                 .ToList();
 
-            return new ResultadoPaginadoDto<InformacoesCondominioDto>
+            return new ResultadoPaginadoDto<AtlasCondominioDto>
             {
                 Pagina = query.Pagina,
                 TamanhoPagina = TamanhoPagina,
@@ -94,49 +94,23 @@ namespace AuxiAPI.src.Services
 
         private static bool DeveUsarCachePorNome(VisualizarCondominioQuery query)
         {
-            return !string.IsNullOrWhiteSpace(query.NomeDoCondominio)
-                && string.IsNullOrWhiteSpace(query.CodigoDoCondominio)
-                && string.IsNullOrWhiteSpace(query.CNPJDoCondominio);
+            return !string.IsNullOrWhiteSpace(query.NomeCondom)
+                && string.IsNullOrWhiteSpace(query.Cnpj);
         }
 
         private static void ValidarFiltros(VisualizarCondominioQuery query)
         {
-            if (query.CodigoDoCondominio?.Length > 15)
-                throw new ArgumentException(MensagensDeErro.CodigoTamanhoExcedido);
-
-            if (query.CNPJDoCondominio?.Length > 15)
+            if (query.Cnpj?.Length > 15)
                 throw new ArgumentException(MensagensDeErro.CnpjTamanhoExcedido);
 
-            if (query.NomeDoCondominio?.Length > 200)
+            if (query.NomeCondom?.Length > 200)
                 throw new ArgumentException(MensagensDeErro.NomeTamanhoExcedido);
         }
 
         private static void ValidarPaginacao(VisualizarCondominioQuery query)
         {
-            if (query.Pagina <1) throw new ArgumentException(MensagensDeErro.PaginaInvalida);
-        }
-
-        private static InformacoesCondominioDto MapearParaDto(Condominio condominio)
-        {
-            return new InformacoesCondominioDto
-            {
-                CodigoDoCondominio = condominio.CodigoDoCondominio,
-                CNPJDoCondominio = condominio.CNPJDoCondominio,
-                NomeDoCondominio = condominio.NomeDoCondominio,
-                Endereco = condominio.Endereco,
-                NumeroDoEndereco = condominio.NumeroDoEndereco,
-                EstadoDoEndereco = condominio.EstadoDoEndereco,
-                CidadeDoEndereco = condominio.CidadeDoEndereco,
-                BairroDoEndereco = condominio.BairroDoEndereco,
-                CEPDoEndereco = condominio.CEPDoEndereco,
-                NumeroDeTorres = condominio.NumeroDeTorres,
-                NumeroDeUnidades = condominio.NumeroDeUnidades,
-                Status = condominio.Status,
-                DataInicial_Administracao = condominio.DataInicial_Administracao,
-                DataFinal_Administracao = condominio.DataFinal_Administracao,
-                NomeGerenteDeContas = condominio.NomeGerenteDeContas,
-                NomeSindico = condominio.NomeSindico
-            };
+            if (query.Pagina < 1)
+                throw new ArgumentException(MensagensDeErro.PaginaInvalida);
         }
     }
 }
