@@ -9,6 +9,6 @@ namespace AuxiAPI.src.Repositories
             VisualizarCondominioQuery query,
             int tamanhoPagina);
 
-        Task<AtlasCondominio?> ObterPorIdAsync(int id);
+        Task<AtlasCondominio?> ObterPorCodCondomAsync(int codcondom);
     }
 }

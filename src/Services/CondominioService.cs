@@ -18,18 +18,13 @@ namespace AuxiAPI.src.Services
             ValidarFiltros(query);
             ValidarPaginacao(query);
 
-            if (!DeveUsarCachePorNome(query))
+            if (!DeveUsarCacheNaListagem(query))
                 return await ListarSemCacheAsync(query);
 
-            var nomeNormalizado = TextNormalizer.NormalizarBusca(query.NomeCondom!.Trim());
-
-            var urlDaConsulta =
-                $"/api/condominios?nomeCondom={Uri.EscapeDataString(nomeNormalizado)}&pagina={query.Pagina}";
-
-            var chaveCache = $"GET:{urlDaConsulta}";
+            var dadosCache = MontarDadosCacheListagem(query);
 
             var cache = await cacheService
-                .ObterAsync<ResultadoPaginadoDto<AtlasCondominioDto>>(chaveCache);
+                .ObterAsync<ResultadoPaginadoDto<AtlasCondominioDto>>(dadosCache.ChaveCache);
 
             if (cache is not null)
                 return cache;
@@ -37,9 +32,9 @@ namespace AuxiAPI.src.Services
             var resultado = await ListarSemCacheAsync(query);
 
             await cacheService.SalvarAsync(
-                chaveCache,
-                urlDaConsulta,
-                tipoConsulta: "CONDOMINIO_NOME",
+                dadosCache.ChaveCache,
+                dadosCache.UrlDaConsulta,
+                tipoConsulta: dadosCache.TipoConsulta,
                 entidade: "atlas_condominios",
                 entidadeId: null,
                 resposta: resultado);
@@ -47,9 +42,9 @@ namespace AuxiAPI.src.Services
             return resultado;
         }
 
-        public async Task<AtlasCondominioDto> ObterPorIdAsync(int id)
+        public async Task<AtlasCondominioDto> ObterPorCodCondomAsync(int codcondom)
         {
-            var urlDaConsulta = $"/api/condominios/{id}";
+            var urlDaConsulta = $"/api/condominios/{codcondom}";
             var chaveCache = $"GET:{urlDaConsulta}";
 
             var cache = await cacheService.ObterAsync<AtlasCondominioDto>(chaveCache);
@@ -57,17 +52,17 @@ namespace AuxiAPI.src.Services
             if (cache is not null)
                 return cache;
 
-            var condominio = await repository.ObterPorIdAsync(id)
-                ?? throw new KeyNotFoundException($"condomínio com codcondom {id} não foi encontrado.");
+            var condominio = await repository.ObterPorCodCondomAsync(codcondom)
+                ?? throw new KeyNotFoundException($"condomínio com codcondom {codcondom} não foi encontrado.");
 
             var resultado = condominio.ToDto();
 
             await cacheService.SalvarAsync(
                 chaveCache,
                 urlDaConsulta,
-                tipoConsulta: "CONDOMINIO_ID",
+                tipoConsulta: "CONDOMINIO_CODCONDOM",
                 entidade: "atlas_condominios",
-                entidadeId: id,
+                entidadeId: codcondom,
                 resposta: resultado);
 
             return resultado;
@@ -92,10 +87,50 @@ namespace AuxiAPI.src.Services
             };
         }
 
+        private static bool DeveUsarCacheNaListagem(VisualizarCondominioQuery query)
+        {
+            return DeveUsarCachePorNome(query) || DeveUsarCachePorCnpj(query);
+        }
+
         private static bool DeveUsarCachePorNome(VisualizarCondominioQuery query)
         {
             return !string.IsNullOrWhiteSpace(query.NomeCondom)
                 && string.IsNullOrWhiteSpace(query.Cnpj);
+        }
+
+        private static bool DeveUsarCachePorCnpj(VisualizarCondominioQuery query)
+        {
+            return !string.IsNullOrWhiteSpace(query.Cnpj)
+                && string.IsNullOrWhiteSpace(query.NomeCondom);
+        }
+
+        private static (string ChaveCache, string UrlDaConsulta, string TipoConsulta) MontarDadosCacheListagem(
+            VisualizarCondominioQuery query)
+        {
+            if (DeveUsarCachePorCnpj(query))
+            {
+                var cnpj = query.Cnpj!.Trim();
+
+                var urlDaConsulta =
+                    $"/api/condominios?cnpj={Uri.EscapeDataString(cnpj)}&pagina={query.Pagina}";
+
+                return (
+                    ChaveCache: $"GET:{urlDaConsulta}",
+                    UrlDaConsulta: urlDaConsulta,
+                    TipoConsulta: "CONDOMINIO_CNPJ"
+                );
+            }
+
+            var nomeNormalizado = TextNormalizer.NormalizarBusca(query.NomeCondom!.Trim());
+
+            var urlPorNome =
+                $"/api/condominios?nomeCondom={Uri.EscapeDataString(nomeNormalizado)}&pagina={query.Pagina}";
+
+            return (
+                ChaveCache: $"GET:{urlPorNome}",
+                UrlDaConsulta: urlPorNome,
+                TipoConsulta: "CONDOMINIO_NOME"
+            );
         }
 
         private static void ValidarFiltros(VisualizarCondominioQuery query)

@@ -58,11 +58,11 @@ namespace AuxiAPI.src.Repositories
             return (itens, totalItens);
         }
 
-        public async Task<AtlasCondominio?> ObterPorIdAsync(int id)
+        public async Task<AtlasCondominio?> ObterPorCodCondomAsync(int codcondom)
         {
             return await context.AtlasCondominios
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.CodCondom == id);
+                .FirstOrDefaultAsync(c => c.CodCondom == codcondom);
         }
 
         private static string MascararCnpj(string cnpj)

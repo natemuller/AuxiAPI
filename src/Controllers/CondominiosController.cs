@@ -17,10 +17,10 @@ namespace AuxiAPI.src.Controllers
             return Ok(resultado);
         }
 
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetById([FromRoute] int id)
+        [HttpGet("{codcondom:int}")]
+        public async Task<IActionResult> GetByCodCondom([FromRoute] int codcondom)
         {
-            var resultado = await service.ObterPorIdAsync(id);
+            var resultado = await service.ObterPorCodCondomAsync(codcondom);
             return Ok(resultado);
         }
     }
