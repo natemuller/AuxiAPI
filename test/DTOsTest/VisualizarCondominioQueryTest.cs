@@ -5,26 +5,54 @@ namespace AuxiAPI.Tests.DTOsTest;
 public class VisualizarCondominioQueryTest
 {
     [Fact]
-    public void CNPJDoCondominio_DeveNormalizarCnpjComMascara()
+    public void Cnpj_DeveNormalizarCnpjComMascara()
     {
-        var query = new VisualizarCondominioQuery { CNPJDoCondominio = "12.345.678/0001-01" };
+        var query = new VisualizarCondominioQuery
+        {
+            Cnpj = "12.345.678/0001-01"
+        };
 
-        Assert.Equal("12345678000101", query.CNPJDoCondominio);
+        Assert.Equal("12345678000101", query.Cnpj);
     }
 
     [Fact]
-    public void CNPJDoCondominio_DeveManterNull_QuandoValorForNull()
+    public void Cnpj_DeveManterNull_QuandoValorForNull()
     {
-        var query = new VisualizarCondominioQuery { CNPJDoCondominio = null };
+        var query = new VisualizarCondominioQuery
+        {
+            Cnpj = null
+        };
 
-        Assert.Null(query.CNPJDoCondominio);
+        Assert.Null(query.Cnpj);
     }
 
     [Fact]
-    public void CNPJDoCondominio_DeveRemoverCaracteresNaoNumericos()
+    public void Cnpj_DeveRemoverCaracteresNaoNumericos()
     {
-        var query = new VisualizarCondominioQuery { CNPJDoCondominio = "abc12.345xyz" };
+        var query = new VisualizarCondominioQuery
+        {
+            Cnpj = "abc12.345xyz"
+        };
 
-        Assert.Equal("12345", query.CNPJDoCondominio);
+        Assert.Equal("12345", query.Cnpj);
+    }
+
+    [Fact]
+    public void NomeCondom_DeveArmazenarValorInformado()
+    {
+        var query = new VisualizarCondominioQuery
+        {
+            NomeCondom = "Residencial Solar"
+        };
+
+        Assert.Equal("Residencial Solar", query.NomeCondom);
+    }
+
+    [Fact]
+    public void Pagina_DeveIniciarComValorPadraoUm()
+    {
+        var query = new VisualizarCondominioQuery();
+
+        Assert.Equal(1, query.Pagina);
     }
 }
