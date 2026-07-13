@@ -358,8 +358,7 @@
         <label for="tipoBusca">Tipo de busca</label>
         <select id="tipoBusca">
           <option value="todos">Sem filtros</option>
-          <option value="id">ID</option>
-          <option value="codigo">Código do condomínio</option>
+          <option value="id">Código do condomínio</option>
           <option value="cnpj">CNPJ</option>
           <option value="nome">Nome</option>
         </select>
@@ -413,10 +412,9 @@
 
     alternarModoEscuro();
 
-        const placeholdersBusca = {
+    const placeholdersBusca = {
       todos: "",
-      id: "Digite o ID do condomínio",
-      codigo: "Digite o código do condomínio. Ex: 1 ou 0001",
+      id: "Digite o código do condomínio. Ex: 5396",
       cnpj: "Digite o CNPJ com ou sem máscara",
       nome: "Digite o nome do condomínio"
     };
@@ -459,13 +457,13 @@
       return headers;
     }
 
-        function montarUrl(pagina) {
+    function montarUrl(pagina) {
       const tipoBusca = document.getElementById("tipoBusca").value;
       const valorBusca = document.getElementById("valorBusca").value.trim();
 
       if (tipoBusca === "id") {
         if (!valorBusca) {
-          throw new Error("Informe o ID para pesquisar.");
+          throw new Error("Informe o código do condomínio.");
         }
 
         return `${apiBase}/${encodeURIComponent(valorBusca)}`;
@@ -473,20 +471,12 @@
 
       const params = new URLSearchParams();
 
-      if (tipoBusca === "codigo") {
-        if (!valorBusca) {
-          throw new Error("Informe o código do condomínio.");
-        }
-
-        params.append("CodigoDoCondominio", valorBusca);
-      }
-
       if (tipoBusca === "cnpj") {
         if (!valorBusca) {
           throw new Error("Informe o CNPJ.");
         }
 
-        params.append("CNPJDoCondominio", valorBusca);
+        params.append("cnpj", valorBusca);
       }
 
       if (tipoBusca === "nome") {
@@ -494,10 +484,10 @@
           throw new Error("Informe o nome do condomínio.");
         }
 
-        params.append("NomeDoCondominio", valorBusca);
+        params.append("nomeCondom", valorBusca);
       }
 
-      params.append("Pagina", pagina);
+      params.append("pagina", pagina);
 
       return `${apiBase}?${params.toString()}`;
     }
@@ -568,7 +558,7 @@
       renderizarPaginacao();
     }
 
-        function renderizarTabela(itens) {
+    function renderizarTabela(itens) {
       const container = document.getElementById("resultadoTabela");
 
       if (!itens || itens.length === 0) {
@@ -584,86 +574,62 @@
             <td>
               <button class="botao-expandir" type="button" title="Ver detalhes">▶</button>
             </td>
-            <td>${valor(item.codigoDoCondominio)}</td>
-            <td>${valor(item.cnpjDoCondominio)}</td>
-            <td>${valor(item.nomeDoCondominio)}</td>
-            <td>${valor(item.cidadeDoEndereco)}</td>
-            <td>${valor(item.estadoDoEndereco)}</td>
-            <td>${valor(item.status)}</td>
-            <td>${valor(item.numeroDeTorres)}</td>
-            <td>${valor(item.numeroDeUnidades)}</td>
+            <td>${valor(item.codCondom)}</td>
+            <td>${valor(item.cnpj)}</td>
+            <td>${valor(item.nomeCondom)}</td>
+            <td>${valor(item.cidade)}</td>
+            <td>${valor(item.uf)}</td>
+            <td>${valor(item.ativo)}</td>
+            <td>${valor(item.qtdBlocos)}</td>
+            <td>${valor(item.qtdUnidades)}</td>
           </tr>
 
           <tr id="${detalheId}" class="detalhes-condominio">
             <td colspan="9">
               <div class="detalhes-conteudo">
-                <h3>${valor(item.nomeDoCondominio)}</h3>
+                <h3>${valor(item.nomeCondom)}</h3>
 
                 <div class="detalhes-grid">
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Código</span>
-                    <span class="detalhe-valor">${valor(item.codigoDoCondominio)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">CNPJ</span>
-                    <span class="detalhe-valor">${valor(item.cnpjDoCondominio)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Status</span>
-                    <span class="detalhe-valor">${valor(item.status)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Endereço</span>
-                    <span class="detalhe-valor">${valor(item.endereco)}, ${valor(item.numeroDoEndereco)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Bairro</span>
-                    <span class="detalhe-valor">${valor(item.bairroDoEndereco)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Cidade / Estado</span>
-                    <span class="detalhe-valor">${valor(item.cidadeDoEndereco)} / ${valor(item.estadoDoEndereco)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">CEP</span>
-                    <span class="detalhe-valor">${valor(item.cepDoEndereco)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Número de torres</span>
-                    <span class="detalhe-valor">${valor(item.numeroDeTorres)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Número de unidades</span>
-                    <span class="detalhe-valor">${valor(item.numeroDeUnidades)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Início da administração</span>
-                    <span class="detalhe-valor">${valor(item.dataInicial_Administracao)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Fim da administração</span>
-                    <span class="detalhe-valor">${valor(item.dataFinal_Administracao, "Não informado")}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Gerente de contas</span>
-                    <span class="detalhe-valor">${valor(item.nomeGerenteDeContas)}</span>
-                  </div>
-
-                  <div class="detalhe-item">
-                    <span class="detalhe-label">Síndico</span>
-                    <span class="detalhe-valor">${valor(item.nomeSindico)}</span>
-                  </div>
+                  ${renderizarDetalhe("CodCondom", item.codCondom)}
+                  ${renderizarDetalhe("NomeCondom", item.nomeCondom)}
+                  ${renderizarDetalhe("Ativo", item.ativo)}
+                  ${renderizarDetalhe("CNPJ", item.cnpj)}
+                  ${renderizarDetalhe("CEI", item.cei)}
+                  ${renderizarDetalhe("InscrMunicip", item.inscrMunicip)}
+                  ${renderizarDetalhe("QtdBlocos", item.qtdBlocos)}
+                  ${renderizarDetalhe("QtdUnidades", item.qtdUnidades)}
+                  ${renderizarDetalhe("TotalFracao", item.totalFracao)}
+                  ${renderizarDetalhe("DiaVencDoc", item.diaVencDoc)}
+                  ${renderizarDetalhe("DataInicioAdm", item.dataInicioAdm)}
+                  ${renderizarDetalhe("DataDistrato", item.dataDistrato)}
+                  ${renderizarDetalhe("MotivoDistrato", item.motivoDistrato)}
+                  ${renderizarDetalhe("Assessor", item.assessor)}
+                  ${renderizarDetalhe("Filial", item.filial)}
+                  ${renderizarDetalhe("Agencia", item.agencia)}
+                  ${renderizarDetalhe("Sindico", item.sindico)}
+                  ${renderizarDetalhe("SubSindico", item.subSindico)}
+                  ${renderizarDetalhe("Conselheiro", item.conselheiro)}
+                  ${renderizarDetalhe("Gestor", item.gestor)}
+                  ${renderizarDetalhe("ConselhoFiscal", item.conselhoFiscal)}
+                  ${renderizarDetalhe("ConselhoConsultivo", item.conselhoConsultivo)}
+                  ${renderizarDetalhe("ConselhoSuplente", item.conselhoSuplente)}
+                  ${renderizarDetalhe("TipoCondominio", item.tipoCondominio)}
+                  ${renderizarDetalhe("TipoCategoria", item.tipoCategoria)}
+                  ${renderizarDetalhe("DtAlteracao", item.dtAlteracao)}
+                  ${renderizarDetalhe("TipoLograd", item.tipoLograd)}
+                  ${renderizarDetalhe("Lograd", item.lograd)}
+                  ${renderizarDetalhe("Numero", item.numero)}
+                  ${renderizarDetalhe("Bairro", item.bairro)}
+                  ${renderizarDetalhe("Cidade", item.cidade)}
+                  ${renderizarDetalhe("Cep8Log", item.cep8Log)}
+                  ${renderizarDetalhe("Uf", item.uf)}
+                  ${renderizarDetalhe("CodPessoaSindico", item.codPessoaSindico)}
+                  ${renderizarDetalhe("NomeSindico", item.nomeSindico)}
+                  ${renderizarDetalhe("CpfDocnpj", item.cpfDocnpj)}
+                  ${renderizarDetalhe("CondGarantido", item.condGarantido)}
+                  ${renderizarDetalhe("TipoConta", item.tipoConta)}
+                  ${renderizarDetalhe("ObsCobranca", item.obsCobranca)}
+                  ${renderizarDetalhe("Garantidora", item.garantidora)}
                 </div>
               </div>
             </td>
@@ -676,14 +642,14 @@
           <thead>
             <tr>
               <th></th>
-              <th>Código</th>
+              <th>CodCondom</th>
               <th>CNPJ</th>
-              <th>Nome</th>
+              <th>NomeCondom</th>
               <th>Cidade</th>
-              <th>Estado</th>
-              <th>Status</th>
-              <th>Torres</th>
-              <th>Unidades</th>
+              <th>UF</th>
+              <th>Ativo</th>
+              <th>QtdBlocos</th>
+              <th>QtdUnidades</th>
             </tr>
           </thead>
           <tbody>
@@ -693,7 +659,16 @@
       `;
     }
 
-        function alternarDetalhes(id, linhaResumo) {
+    function renderizarDetalhe(label, valorRecebido) {
+      return `
+        <div class="detalhe-item">
+          <span class="detalhe-label">${escaparHtml(label)}</span>
+          <span class="detalhe-valor">${valor(valorRecebido)}</span>
+        </div>
+      `;
+    }
+
+    function alternarDetalhes(id, linhaResumo) {
       const linhaDetalhes = document.getElementById(id);
       const botao = linhaResumo.querySelector(".botao-expandir");
 
