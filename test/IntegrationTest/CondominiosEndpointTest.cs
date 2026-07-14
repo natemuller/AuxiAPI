@@ -5,11 +5,12 @@ using AuxiAPI.src.Contexts;
 using AuxiAPI.src.DTOs;
 using AuxiAPI.src.Entities;
 using AuxiAPI.Tests.TestInfrastructure;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.TestHost;
 
 namespace AuxiAPI.Tests.IntegrationTest;
 
@@ -17,7 +18,7 @@ namespace AuxiAPI.Tests.IntegrationTest;
 public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly PostgresTestFixture _fixture = fixture;
-    
+
     private readonly WebApplicationFactory<Program> _factory = new WebApplicationFactory<Program>()
         .WithWebHostBuilder(builder =>
         {
@@ -54,41 +55,25 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         await SeedAsync();
 
         using var client = _factory.CreateClient();
+
         var response = await client.GetAsync("/api/condominios");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content
-            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+            .ReadFromJsonAsync<ResultadoPaginadoDto<AtlasCondominioDto>>();
 
         Assert.NotNull(body);
         Assert.NotEmpty(body!.Itens);
         Assert.Equal(1, body.Pagina);
         Assert.Equal(10, body.TamanhoPagina);
-    }
+        Assert.Equal(2, body.TotalItens);
 
-    [Fact]
-    public async Task GET_api_condominios_DeveFiltrarPorCodigo()
-    {
-        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
-        {
-            return;
-        }
+        var primeiro = body.Itens.First();
 
-        await SeedAsync();
-
-        using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/condominios?codigoDoCondominio=1");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var body = await response.Content
-            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
-
-        Assert.NotNull(body);
-
-        var item = Assert.Single(body!.Itens);
-        Assert.Equal("0001", item.CodigoDoCondominio);
+        Assert.Equal(5396, primeiro.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", primeiro.NomeCondom);
+        Assert.Equal("17474690000113", primeiro.Cnpj);
     }
 
     [Fact]
@@ -102,17 +87,21 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         await SeedAsync();
 
         using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/condominios?cnpjDoCondominio=12.345.678/0001-01");
+
+        var response = await client.GetAsync("/api/condominios?cnpj=17.474.690/0001-13");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content
-            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+            .ReadFromJsonAsync<ResultadoPaginadoDto<AtlasCondominioDto>>();
 
         Assert.NotNull(body);
 
         var item = Assert.Single(body!.Itens);
-        Assert.Equal("12345678000101", item.CNPJDoCondominio);
+
+        Assert.Equal(5396, item.CodCondom);
+        Assert.Equal("17474690000113", item.Cnpj);
+        Assert.Equal("SOLAR DI TOSCANA", item.NomeCondom);
     }
 
     [Fact]
@@ -126,17 +115,47 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         await SeedAsync();
 
         using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/condominios?nomeDoCondominio=brasil");
+
+        var response = await client.GetAsync("/api/condominios?nomeCondom=solar");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content
-            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+            .ReadFromJsonAsync<ResultadoPaginadoDto<AtlasCondominioDto>>();
 
         Assert.NotNull(body);
 
         var item = Assert.Single(body!.Itens);
-        Assert.Equal("Residencial Brasil-Hexa", item.NomeDoCondominio);
+
+        Assert.Equal(5396, item.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", item.NomeCondom);
+    }
+
+    [Fact]
+    public async Task GET_api_condominios_DeveFiltrarPorNomeIgnorandoAcento()
+    {
+        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
+        {
+            return;
+        }
+
+        await SeedAsync();
+
+        using var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/condominios?nomeCondom=pele");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content
+            .ReadFromJsonAsync<ResultadoPaginadoDto<AtlasCondominioDto>>();
+
+        Assert.NotNull(body);
+
+        var item = Assert.Single(body!.Itens);
+
+        Assert.Equal(5400, item.CodCondom);
+        Assert.Equal("Residencial Vivendas do Pelé", item.NomeCondom);
     }
 
     [Fact]
@@ -150,12 +169,13 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         await SeedAsync();
 
         using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/condominios?codigoDoCondominio=9999");
+
+        var response = await client.GetAsync("/api/condominios?nomeCondom=inexistente");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content
-            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+            .ReadFromJsonAsync<ResultadoPaginadoDto<AtlasCondominioDto>>();
 
         Assert.NotNull(body);
         Assert.Empty(body!.Itens);
@@ -163,7 +183,7 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
     }
 
     [Fact]
-    public async Task GET_api_condominios_id_DeveRetornar200_QuandoIdExistir()
+    public async Task GET_api_condominios_codcondom_DeveRetornar200_QuandoCodCondomExistir()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
@@ -173,18 +193,23 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         await SeedAsync();
 
         using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/condominios/1");
+
+        var response = await client.GetAsync("/api/condominios/5396");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var body = await response.Content.ReadFromJsonAsync<InformacoesCondominioDto>();
+        var body = await response.Content.ReadFromJsonAsync<AtlasCondominioDto>();
 
         Assert.NotNull(body);
-        Assert.Equal("0001", body!.CodigoDoCondominio);
+        Assert.Equal(5396, body!.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", body.NomeCondom);
+        Assert.Equal("17474690000113", body.Cnpj);
+        Assert.Equal("Porto Alegre", body.Cidade);
+        Assert.Equal("RS", body.Uf);
     }
 
     [Fact]
-    public async Task GET_api_condominios_id_DeveRetornar404_QuandoIdNaoExistir()
+    public async Task GET_api_condominios_codcondom_DeveRetornar404_QuandoCodCondomNaoExistir()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
@@ -194,6 +219,7 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         await SeedAsync();
 
         using var client = _factory.CreateClient();
+
         var response = await client.GetAsync("/api/condominios/9999");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
@@ -207,26 +233,6 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
     }
 
     [Fact]
-    public async Task GET_api_condominios_DeveRetornar400_QuandoCodigoExcederLimite()
-    {
-        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
-        {
-            return;
-        }
-
-        using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/condominios?codigoDoCondominio=1234567890123456");
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        Assert.False(body.GetProperty("sucesso").GetBoolean());
-        Assert.Equal(400, body.GetProperty("status").GetInt32());
-        Assert.Contains("codigo de busca", body.GetProperty("mensagem").GetString());
-    }
-
-    [Fact]
     public async Task GET_api_condominios_DeveRetornar400_QuandoCnpjExcederLimite()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
@@ -235,7 +241,8 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         }
 
         using var client = _factory.CreateClient();
-        var response = await client.GetAsync("/api/condominios?cnpjDoCondominio=1234567890123456");
+
+        var response = await client.GetAsync("/api/condominios?cnpj=1234567890123456");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -257,7 +264,8 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
         var nome = new string('n', 201);
 
         using var client = _factory.CreateClient();
-        var response = await client.GetAsync($"/api/condominios?nomeDoCondominio={nome}");
+
+        var response = await client.GetAsync($"/api/condominios?nomeCondom={nome}");
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
@@ -274,38 +282,76 @@ public class CondominiosEndpointTest(PostgresTestFixture fixture) : IClassFixtur
 
         var context = scope.ServiceProvider.GetRequiredService<CondominiosDbContext>();
 
+        await context.Database.EnsureDeletedAsync();
         await context.Database.EnsureCreatedAsync();
 
+        await context.Database.ExecuteSqlRawAsync("create extension if not exists unaccent;");
+
         context.Cache.RemoveRange(context.Cache);
-        context.Condominios.RemoveRange(context.Condominios);
+        context.AtlasCondominios.RemoveRange(context.AtlasCondominios);
+
         await context.SaveChangesAsync();
 
-        context.Condominios.AddRange(
-            CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
+        context.AtlasCondominios.AddRange(
+            CreateAtlasCondominio(
+                codCondom: 5396,
+                cnpj: "17474690000113",
+                nome: "SOLAR DI TOSCANA"),
+            CreateAtlasCondominio(
+                codCondom: 5400,
+                cnpj: "12543867000101",
+                nome: "Residencial Vivendas do Pelé"));
 
         await context.SaveChangesAsync();
     }
 
-    private static Condominio CreateCondominio(string codigo, string cnpj, string nome)
+    private static AtlasCondominio CreateAtlasCondominio(
+        int codCondom,
+        string cnpj,
+        string nome)
     {
-        return new Condominio
+        return new AtlasCondominio
         {
-            CodigoDoCondominio = codigo,
-            CNPJDoCondominio = cnpj,
-            NomeDoCondominio = nome,
-            Endereco = "Rua Teste",
-            NumeroDoEndereco = "123",
-            EstadoDoEndereco = "RS",
-            CidadeDoEndereco = "Porto Alegre",
-            BairroDoEndereco = "Centro",
-            CEPDoEndereco = "90000000",
-            NumeroDeTorres = 1,
-            NumeroDeUnidades = 10,
-            Status = "Ativo",
-            DataInicial_Administracao = "01/01/2024",
-            DataFinal_Administracao = string.Empty,
-            NomeGerenteDeContas = "Gerente",
-            NomeSindico = "Síndico"
+            CodCondom = codCondom,
+            NomeCondom = nome,
+            Ativo = "S",
+            Cnpj = cnpj,
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 10,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "Gerente",
+            Filial = "Porto Alegre",
+            Agencia = "Agência Teste",
+            Sindico = "Síndico",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = new DateTime(2026, 7, 14, 10, 0, 0),
+            TipoLograd = "Rua",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
     }
 }

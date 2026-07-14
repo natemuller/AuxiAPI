@@ -7,6 +7,7 @@ using AuxiAPI.Tests.TestInfrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
@@ -53,7 +54,7 @@ public class CondominiosAuthorizationEndpointTest(PostgresTestFixture fixture, I
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var body = await response.Content
-            .ReadFromJsonAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>();
+            .ReadFromJsonAsync<ResultadoPaginadoDto<AtlasCondominioDto>>();
 
         Assert.NotNull(body);
         Assert.NotEmpty(body!.Itens);
@@ -62,8 +63,10 @@ public class CondominiosAuthorizationEndpointTest(PostgresTestFixture fixture, I
         Assert.Equal(1, body.TotalItens);
 
         var item = Assert.Single(body.Itens);
-        Assert.Equal("0001", item.CodigoDoCondominio);
-        Assert.Equal("Residencial Brasil-Hexa", item.NomeDoCondominio);
+
+        Assert.Equal(5396, item.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", item.NomeCondom);
+        Assert.Equal("17474690000113", item.Cnpj);
     }
 
     private WebApplicationFactory<Program> CriarFactoryNaoAutenticada()
@@ -127,36 +130,71 @@ public class CondominiosAuthorizationEndpointTest(PostgresTestFixture fixture, I
 
         var context = scope.ServiceProvider.GetRequiredService<CondominiosDbContext>();
 
+        await context.Database.EnsureDeletedAsync();
         await context.Database.EnsureCreatedAsync();
 
+        await context.Database.ExecuteSqlRawAsync("create extension if not exists unaccent;");
+
         context.Cache.RemoveRange(context.Cache);
-        context.Condominios.RemoveRange(context.Condominios);
+        context.AtlasCondominios.RemoveRange(context.AtlasCondominios);
+
         await context.SaveChangesAsync();
 
-        context.Condominios.Add(CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
+        context.AtlasCondominios.Add(CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17474690000113",
+            nome: "SOLAR DI TOSCANA"));
+
         await context.SaveChangesAsync();
     }
 
-    private static Condominio CreateCondominio(string codigo, string cnpj, string nome)
+    private static AtlasCondominio CreateAtlasCondominio(
+        int codCondom,
+        string cnpj,
+        string nome)
     {
-        return new Condominio
+        return new AtlasCondominio
         {
-            CodigoDoCondominio = codigo,
-            CNPJDoCondominio = cnpj,
-            NomeDoCondominio = nome,
-            Endereco = "Rua Teste",
-            NumeroDoEndereco = "123",
-            EstadoDoEndereco = "RS",
-            CidadeDoEndereco = "Porto Alegre",
-            BairroDoEndereco = "Centro",
-            CEPDoEndereco = "90000000",
-            NumeroDeTorres = 1,
-            NumeroDeUnidades = 10,
-            Status = "Ativo",
-            DataInicial_Administracao = "01/01/2024",
-            DataFinal_Administracao = string.Empty,
-            NomeGerenteDeContas = "Gerente",
-            NomeSindico = "Síndico"
+            CodCondom = codCondom,
+            NomeCondom = nome,
+            Ativo = "S",
+            Cnpj = cnpj,
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 10,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "Gerente",
+            Filial = "Porto Alegre",
+            Agencia = "Agência Teste",
+            Sindico = "Síndico",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = new DateTime(2026, 7, 14, 10, 0, 0),
+            TipoLograd = "Rua",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
     }
 }

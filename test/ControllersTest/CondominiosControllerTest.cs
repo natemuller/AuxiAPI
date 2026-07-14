@@ -1,58 +1,149 @@
+using AuxiAPI.src.Controllers;
 using AuxiAPI.src.DTOs;
+using AuxiAPI.src.Entities;
+using AuxiAPI.src.Repositories;
+using AuxiAPI.src.Services;
+using Microsoft.AspNetCore.Mvc;
+using Moq;
 
-namespace AuxiAPI.Tests.DTOsTest;
+namespace AuxiAPI.Tests.ControllersTest;
 
-public class VisualizarCondominioQueryTest
+public class CondominiosControllerTest
 {
     [Fact]
-    public void CnpjDeveNormalizarCnpjComMascara()
+    public async Task GetAll_DeveRetornarOk_ComListaPaginadaDeCondominiosAtlas()
     {
-        var query = new VisualizarCondominioQuery
-        {
-            Cnpj = "12.345.678/0001-01"
-        };
+        var repository = new Mock<ICondominioRepository>();
 
-        Assert.Equal("12345678000101", query.Cnpj);
+        repository
+            .Setup(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<AtlasCondominio> { CreateAtlasCondominio() }, 1));
+
+        var controller = new CondominiosController(CriarService(repository.Object));
+
+        var resultado = await controller.GetAll(new VisualizarCondominioQuery());
+
+        var okResult = Assert.IsType<OkObjectResult>(resultado);
+        Assert.Equal(200, okResult.StatusCode);
+
+        var body = Assert.IsType<ResultadoPaginadoDto<AtlasCondominioDto>>(okResult.Value);
+
+        Assert.Equal(1, body.Pagina);
+        Assert.Equal(10, body.TamanhoPagina);
+        Assert.Equal(1, body.TotalItens);
+        Assert.Equal(1, body.TotalPaginas);
+
+        var item = Assert.Single(body.Itens);
+
+        Assert.Equal(5396, item.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", item.NomeCondom);
+        Assert.Equal("17474690000113", item.Cnpj);
     }
 
     [Fact]
-    public void CnpjDeveManterNullQuandoValorForNull()
+    public async Task GetByCodCondom_DeveRetornarOk_QuandoCodCondomExistir()
     {
-        var query = new VisualizarCondominioQuery
-        {
-            Cnpj = null
-        };
+        var repository = new Mock<ICondominioRepository>();
 
-        Assert.Null(query.Cnpj);
+        repository
+            .Setup(x => x.ObterPorCodCondomAsync(5396))
+            .ReturnsAsync(CreateAtlasCondominio());
+
+        var controller = new CondominiosController(CriarService(repository.Object));
+
+        var resultado = await controller.GetByCodCondom(5396);
+
+        var okResult = Assert.IsType<OkObjectResult>(resultado);
+        var body = Assert.IsType<AtlasCondominioDto>(okResult.Value);
+
+        Assert.Equal(5396, body.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", body.NomeCondom);
+        Assert.Equal("17474690000113", body.Cnpj);
     }
 
-    [Fact]
-    public void CnpjDeveRemoverCaracteresNaoNumericos()
+    private static CondominioService CriarService(ICondominioRepository repository)
     {
-        var query = new VisualizarCondominioQuery
-        {
-            Cnpj = "abc12.345xyz"
-        };
+        var cacheService = new Mock<IDatabaseCacheService>();
 
-        Assert.Equal("12345", query.Cnpj);
+        cacheService
+            .Setup(x => x.ObterAsync<AtlasCondominioDto>(It.IsAny<string>()))
+            .ReturnsAsync((AtlasCondominioDto?)null);
+
+        cacheService
+            .Setup(x => x.ObterAsync<ResultadoPaginadoDto<AtlasCondominioDto>>(It.IsAny<string>()))
+            .ReturnsAsync((ResultadoPaginadoDto<AtlasCondominioDto>?)null);
+
+        cacheService
+            .Setup(x => x.SalvarAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<AtlasCondominioDto>(),
+                It.IsAny<int>()))
+            .Returns(Task.CompletedTask);
+
+        cacheService
+            .Setup(x => x.SalvarAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int?>(),
+                It.IsAny<ResultadoPaginadoDto<AtlasCondominioDto>>(),
+                It.IsAny<int>()))
+            .Returns(Task.CompletedTask);
+
+        return new CondominioService(repository, cacheService.Object);
     }
 
-    [Fact]
-    public void NomeCondomDeveArmazenarValorInformado()
+    private static AtlasCondominio CreateAtlasCondominio()
     {
-        var query = new VisualizarCondominioQuery
+        return new AtlasCondominio
         {
-            NomeCondom = "Residencial Solar"
+            CodCondom = 5396,
+            NomeCondom = "SOLAR DI TOSCANA",
+            Ativo = "S",
+            Cnpj = "17474690000113",
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 9,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "GERENTE TESTE",
+            Filial = "PORTO ALEGRE",
+            Agencia = "AGENCIA TESTE",
+            Sindico = "SINDICO TESTE",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = DateTime.UtcNow,
+            TipoLograd = "RUA",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
-
-        Assert.Equal("Residencial Solar", query.NomeCondom);
-    }
-
-    [Fact]
-    public void PaginaDeveIniciarComValorPadraoUm()
-    {
-        var query = new VisualizarCondominioQuery();
-
-        Assert.Equal(1, query.Pagina);
     }
 }

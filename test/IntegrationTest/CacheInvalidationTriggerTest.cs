@@ -23,9 +23,9 @@ public class CacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncL
             .Options);
 
         await _context.Database.EnsureDeletedAsync();
+        await _context.Database.EnsureCreatedAsync();
 
-        // Importante: MigrateAsync aplica as migrations, incluindo a trigger.
-        await _context.Database.MigrateAsync();
+        await CriarTriggerDeInvalidacaoAsync();
     }
 
     public async Task DisposeAsync()
@@ -37,7 +37,7 @@ public class CacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncL
     }
 
     [Fact]
-    public async Task Trigger_DeveInvalidarCachePorIdEPorNome_QuandoCondominioForAtualizado()
+    public async Task Trigger_DeveInvalidarCachePorCodCondomNomeECnpj_QuandoAtlasCondominioForAtualizado()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
@@ -46,86 +46,63 @@ public class CacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncL
 
         await LimparTabelasAsync();
 
-        var condominio = CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa");
+        var condominio = CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17474690000113",
+            nome: "SOLAR DI TOSCANA");
 
-        _context.Condominios.Add(condominio);
+        _context.AtlasCondominios.Add(condominio);
         await _context.SaveChangesAsync();
 
-        var cachePorId = CreateCacheEntry(
-            chaveCache: $"GET:/api/condominios/{condominio.Id}",
-            urlDaConsulta: $"/api/condominios/{condominio.Id}",
-            tipoConsulta: "CONDOMINIO_ID",
-            entidadeId: condominio.Id);
+        var cachePorCodCondom = CreateCacheEntry(
+            chaveCache: "/api/condominios/5396",
+            urlDaConsulta: "/api/condominios/5396",
+            tipoConsulta: "CONDOMINIO_CODCONDOM",
+            entidadeId: 5396);
 
         var cachePorNome = CreateCacheEntry(
-            chaveCache: "GET:/api/condominios?nomeDoCondominio=residencial&pagina=1",
-            urlDaConsulta: "/api/condominios?nomeDoCondominio=residencial&pagina=1",
+            chaveCache: "/api/condominios?nomeCondom=solar&pagina=1",
+            urlDaConsulta: "/api/condominios?nomeCondom=solar&pagina=1",
             tipoConsulta: "CONDOMINIO_NOME",
             entidadeId: null);
 
-        _context.Cache.AddRange(cachePorId, cachePorNome);
+        var cachePorCnpj = CreateCacheEntry(
+            chaveCache: "/api/condominios?cnpj=17474690000113&pagina=1",
+            urlDaConsulta: "/api/condominios?cnpj=17474690000113&pagina=1",
+            tipoConsulta: "CONDOMINIO_CNPJ",
+            entidadeId: null);
+
+        _context.Cache.AddRange(cachePorCodCondom, cachePorNome, cachePorCnpj);
         await _context.SaveChangesAsync();
 
-        condominio.NomeDoCondominio = "Residencial Nome Alterado";
+        condominio.NomeCondom = "SOLAR DI TOSCANA ALTERADO";
+        condominio.DtAlteracao = new DateTime(2026, 7, 14, 11, 0, 0);
+
         await _context.SaveChangesAsync();
 
-        var cachePorIdAtualizado = await _context.Cache
-            .AsNoTracking()
-            .FirstAsync(c => c.Id == cachePorId.Id);
+        var cachePorCodCondomAtualizado = await BuscarCacheAsync(cachePorCodCondom.Id);
+        var cachePorNomeAtualizado = await BuscarCacheAsync(cachePorNome.Id);
+        var cachePorCnpjAtualizado = await BuscarCacheAsync(cachePorCnpj.Id);
 
-        var cachePorNomeAtualizado = await _context.Cache
-            .AsNoTracking()
-            .FirstAsync(c => c.Id == cachePorNome.Id);
-
-        Assert.NotNull(cachePorIdAtualizado.InvalidadoEm);
+        Assert.NotNull(cachePorCodCondomAtualizado.InvalidadoEm);
         Assert.NotNull(cachePorNomeAtualizado.InvalidadoEm);
+        Assert.NotNull(cachePorCnpjAtualizado.InvalidadoEm);
 
         Assert.Equal(
-            "Registro da tabela condominios alterado",
-            cachePorIdAtualizado.MotivoInvalidacao);
+            "Registro da tabela atlas_condominios alterado",
+            cachePorCodCondomAtualizado.MotivoInvalidacao);
 
         Assert.Equal(
-            "Registro da tabela condominios alterado",
+            "Registro da tabela atlas_condominios alterado",
             cachePorNomeAtualizado.MotivoInvalidacao);
-    }
-
-    [Fact]
-    public async Task Trigger_DeveInvalidarCachePorNome_QuandoCondominioForInserido()
-    {
-        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
-        {
-            return;
-        }
-
-        await LimparTabelasAsync();
-
-        var cachePorNome = CreateCacheEntry(
-            chaveCache: "GET:/api/condominios?nomeDoCondominio=residencial&pagina=1",
-            urlDaConsulta: "/api/condominios?nomeDoCondominio=residencial&pagina=1",
-            tipoConsulta: "CONDOMINIO_NOME",
-            entidadeId: null);
-
-        _context.Cache.Add(cachePorNome);
-        await _context.SaveChangesAsync();
-
-        _context.Condominios.Add(
-            CreateCondominio("0001", "12345678000101", "Residencial Novo"));
-
-        await _context.SaveChangesAsync();
-
-        var cacheAtualizado = await _context.Cache
-            .AsNoTracking()
-            .FirstAsync(c => c.Id == cachePorNome.Id);
-
-        Assert.NotNull(cacheAtualizado.InvalidadoEm);
 
         Assert.Equal(
-            "Registro da tabela condominios alterado",
-            cacheAtualizado.MotivoInvalidacao);
+            "Registro da tabela atlas_condominios alterado",
+            cachePorCnpjAtualizado.MotivoInvalidacao);
     }
 
     [Fact]
-    public async Task Trigger_DeveInvalidarCachePorIdEPorNome_QuandoCondominioForDeletado()
+    public async Task Trigger_DeveInvalidarCachePorNomeECnpj_QuandoAtlasCondominioForInserido()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
@@ -134,47 +111,186 @@ public class CacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncL
 
         await LimparTabelasAsync();
 
-        var condominio = CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa");
-
-        _context.Condominios.Add(condominio);
-        await _context.SaveChangesAsync();
-
-        var cachePorId = CreateCacheEntry(
-            chaveCache: $"GET:/api/condominios/{condominio.Id}",
-            urlDaConsulta: $"/api/condominios/{condominio.Id}",
-            tipoConsulta: "CONDOMINIO_ID",
-            entidadeId: condominio.Id);
-
         var cachePorNome = CreateCacheEntry(
-            chaveCache: "GET:/api/condominios?nomeDoCondominio=residencial&pagina=1",
-            urlDaConsulta: "/api/condominios?nomeDoCondominio=residencial&pagina=1",
+            chaveCache: "/api/condominios?nomeCondom=solar&pagina=1",
+            urlDaConsulta: "/api/condominios?nomeCondom=solar&pagina=1",
             tipoConsulta: "CONDOMINIO_NOME",
             entidadeId: null);
 
-        _context.Cache.AddRange(cachePorId, cachePorNome);
+        var cachePorCnpj = CreateCacheEntry(
+            chaveCache: "/api/condominios?cnpj=17474690000113&pagina=1",
+            urlDaConsulta: "/api/condominios?cnpj=17474690000113&pagina=1",
+            tipoConsulta: "CONDOMINIO_CNPJ",
+            entidadeId: null);
+
+        _context.Cache.AddRange(cachePorNome, cachePorCnpj);
         await _context.SaveChangesAsync();
 
-        _context.Condominios.Remove(condominio);
+        _context.AtlasCondominios.Add(
+            CreateAtlasCondominio(
+                codCondom: 5396,
+                cnpj: "17474690000113",
+                nome: "SOLAR DI TOSCANA"));
+
         await _context.SaveChangesAsync();
 
-        var cachePorIdAtualizado = await _context.Cache
-            .AsNoTracking()
-            .FirstAsync(c => c.Id == cachePorId.Id);
+        var cachePorNomeAtualizado = await BuscarCacheAsync(cachePorNome.Id);
+        var cachePorCnpjAtualizado = await BuscarCacheAsync(cachePorCnpj.Id);
 
-        var cachePorNomeAtualizado = await _context.Cache
-            .AsNoTracking()
-            .FirstAsync(c => c.Id == cachePorNome.Id);
-
-        Assert.NotNull(cachePorIdAtualizado.InvalidadoEm);
         Assert.NotNull(cachePorNomeAtualizado.InvalidadoEm);
+        Assert.NotNull(cachePorCnpjAtualizado.InvalidadoEm);
+
+        Assert.Equal(
+            "Registro da tabela atlas_condominios alterado",
+            cachePorNomeAtualizado.MotivoInvalidacao);
+
+        Assert.Equal(
+            "Registro da tabela atlas_condominios alterado",
+            cachePorCnpjAtualizado.MotivoInvalidacao);
+    }
+
+    [Fact]
+    public async Task Trigger_DeveInvalidarCachePorCodCondomNomeECnpj_QuandoAtlasCondominioForDeletado()
+    {
+        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
+        {
+            return;
+        }
+
+        await LimparTabelasAsync();
+
+        var condominio = CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17474690000113",
+            nome: "SOLAR DI TOSCANA");
+
+        _context.AtlasCondominios.Add(condominio);
+        await _context.SaveChangesAsync();
+
+        var cachePorCodCondom = CreateCacheEntry(
+            chaveCache: "/api/condominios/5396",
+            urlDaConsulta: "/api/condominios/5396",
+            tipoConsulta: "CONDOMINIO_CODCONDOM",
+            entidadeId: 5396);
+
+        var cachePorNome = CreateCacheEntry(
+            chaveCache: "/api/condominios?nomeCondom=solar&pagina=1",
+            urlDaConsulta: "/api/condominios?nomeCondom=solar&pagina=1",
+            tipoConsulta: "CONDOMINIO_NOME",
+            entidadeId: null);
+
+        var cachePorCnpj = CreateCacheEntry(
+            chaveCache: "/api/condominios?cnpj=17474690000113&pagina=1",
+            urlDaConsulta: "/api/condominios?cnpj=17474690000113&pagina=1",
+            tipoConsulta: "CONDOMINIO_CNPJ",
+            entidadeId: null);
+
+        _context.Cache.AddRange(cachePorCodCondom, cachePorNome, cachePorCnpj);
+        await _context.SaveChangesAsync();
+
+        _context.AtlasCondominios.Remove(condominio);
+        await _context.SaveChangesAsync();
+
+        var cachePorCodCondomAtualizado = await BuscarCacheAsync(cachePorCodCondom.Id);
+        var cachePorNomeAtualizado = await BuscarCacheAsync(cachePorNome.Id);
+        var cachePorCnpjAtualizado = await BuscarCacheAsync(cachePorCnpj.Id);
+
+        Assert.NotNull(cachePorCodCondomAtualizado.InvalidadoEm);
+        Assert.NotNull(cachePorNomeAtualizado.InvalidadoEm);
+        Assert.NotNull(cachePorCnpjAtualizado.InvalidadoEm);
+    }
+
+    private async Task<CacheEntry> BuscarCacheAsync(Guid id)
+    {
+        return await _context.Cache
+            .AsNoTracking()
+            .FirstAsync(c => c.Id == id);
     }
 
     private async Task LimparTabelasAsync()
     {
         _context.Cache.RemoveRange(_context.Cache);
-        _context.Condominios.RemoveRange(_context.Condominios);
+        _context.AtlasCondominios.RemoveRange(_context.AtlasCondominios);
 
         await _context.SaveChangesAsync();
+    }
+
+    private async Task CriarTriggerDeInvalidacaoAsync()
+    {
+        await _context.Database.ExecuteSqlRawAsync("""
+            create or replace function public.invalidar_cache_atlas_condominios()
+            returns trigger
+            language plpgsql
+            as $$
+            declare
+                cod_condom_atual integer;
+                cod_condom_antigo integer;
+            begin
+                if (TG_OP = 'DELETE') then
+                    cod_condom_atual := OLD.codcondom;
+                    cod_condom_antigo := OLD.codcondom;
+                elsif (TG_OP = 'UPDATE') then
+                    cod_condom_atual := NEW.codcondom;
+                    cod_condom_antigo := OLD.codcondom;
+                else
+                    cod_condom_atual := NEW.codcondom;
+                    cod_condom_antigo := NEW.codcondom;
+                end if;
+
+                update public.cache
+                set
+                    invalidado_em = now(),
+                    motivo_invalidacao = 'Registro da tabela atlas_condominios alterado'
+                where
+                    entidade = 'atlas_condominios'
+                    and invalidado_em is null
+                    and expirado_em > now()
+                    and tipo_consulta = 'CONDOMINIO_CODCONDOM'
+                    and entidade_id = cod_condom_atual;
+
+                if (TG_OP = 'UPDATE' and cod_condom_antigo <> cod_condom_atual) then
+                    update public.cache
+                    set
+                        invalidado_em = now(),
+                        motivo_invalidacao = 'Registro da tabela atlas_condominios alterado'
+                    where
+                        entidade = 'atlas_condominios'
+                        and invalidado_em is null
+                        and expirado_em > now()
+                        and tipo_consulta = 'CONDOMINIO_CODCONDOM'
+                        and entidade_id = cod_condom_antigo;
+                end if;
+
+                update public.cache
+                set
+                    invalidado_em = now(),
+                    motivo_invalidacao = 'Registro da tabela atlas_condominios alterado'
+                where
+                    entidade = 'atlas_condominios'
+                    and invalidado_em is null
+                    and expirado_em > now()
+                    and tipo_consulta in (
+                        'CONDOMINIO_NOME',
+                        'CONDOMINIO_CNPJ'
+                    );
+
+                if (TG_OP = 'DELETE') then
+                    return OLD;
+                end if;
+
+                return NEW;
+            end;
+            $$;
+
+            drop trigger if exists trg_invalidar_cache_atlas_condominios
+            on public.atlas_condominios;
+
+            create trigger trg_invalidar_cache_atlas_condominios
+            after insert or update or delete
+            on public.atlas_condominios
+            for each row
+            execute function public.invalidar_cache_atlas_condominios();
+            """);
     }
 
     private static CacheEntry CreateCacheEntry(
@@ -188,11 +304,11 @@ public class CacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncL
         return new CacheEntry
         {
             Id = Guid.NewGuid(),
-            ChaveCache = chaveCache,
+            ChaveCache = $"GET:{chaveCache}",
             UrlDaConsulta = urlDaConsulta,
             MetodoHttp = "GET",
             TipoConsulta = tipoConsulta,
-            Entidade = "condominios",
+            Entidade = "atlas_condominios",
             EntidadeId = entidadeId,
             Resposta = "{}",
             StatusCode = 200,
@@ -203,26 +319,53 @@ public class CacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncL
         };
     }
 
-    private static Condominio CreateCondominio(string codigo, string cnpj, string nome)
+    private static AtlasCondominio CreateAtlasCondominio(
+        int codCondom,
+        string cnpj,
+        string nome)
     {
-        return new Condominio
+        return new AtlasCondominio
         {
-            CodigoDoCondominio = codigo,
-            CNPJDoCondominio = cnpj,
-            NomeDoCondominio = nome,
-            Endereco = "Rua Teste",
-            NumeroDoEndereco = "123",
-            EstadoDoEndereco = "RS",
-            CidadeDoEndereco = "Porto Alegre",
-            BairroDoEndereco = "Centro",
-            CEPDoEndereco = "90000000",
-            NumeroDeTorres = 1,
-            NumeroDeUnidades = 10,
-            Status = "Ativo",
-            DataInicial_Administracao = "01/01/2024",
-            DataFinal_Administracao = string.Empty,
-            NomeGerenteDeContas = "Gerente",
-            NomeSindico = "Síndico"
+            CodCondom = codCondom,
+            NomeCondom = nome,
+            Ativo = "S",
+            Cnpj = cnpj,
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 10,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "Gerente",
+            Filial = "Porto Alegre",
+            Agencia = "Agência Teste",
+            Sindico = "Síndico",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = new DateTime(2026, 7, 14, 10, 0, 0),
+            TipoLograd = "Rua",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
     }
 }
