@@ -17,7 +17,6 @@ Nesta etapa, o foco implementado é o endpoint de **Condomínios**, agora utiliz
 | Busca por `codcondom` | Implementada |
 | Filtros por CNPJ e nome | Implementados |
 | Estrutura Atlas de Condomínios | Implementada |
-| Estrutura Atlas de Blocos e Unidades | Mapeada para evolução futura |
 | Autenticação JWT | Implementada |
 | Token automático em ambiente Development | Implementado |
 | Injeção automática de Authorization em Development | Implementada |
@@ -26,7 +25,6 @@ Nesta etapa, o foco implementado é o endpoint de **Condomínios**, agora utiliz
 | Cache persistente em PostgreSQL/Supabase | Implementado |
 | Cache por `codcondom`, CNPJ e nome | Implementado |
 | Invalidação automática de cache por trigger | Implementada |
-| Swagger/OpenAPI | Implementado |
 | Página HTML de consulta | Implementada |
 | Testes automatizados | Passando, sem falhas e sem avisos |
 | Endpoints de Blocos/Torres e Unidades | Futuro |
