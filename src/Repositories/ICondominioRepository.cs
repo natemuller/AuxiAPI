@@ -5,7 +5,10 @@ namespace AuxiAPI.src.Repositories
 {
     public interface ICondominioRepository
     {
-        Task<(List<Condominio> Itens, int TotalItens)> ListarAsync(VisualizarCondominioQuery query, int tamanhoPagina);
-        Task<Condominio?> ObterPorIdAsync(int id);
+        Task<(List<AtlasCondominio> Itens, int TotalItens)> ListarAsync(
+            VisualizarCondominioQuery query,
+            int tamanhoPagina);
+
+        Task<AtlasCondominio?> ObterPorCodCondomAsync(int codcondom);
     }
 }

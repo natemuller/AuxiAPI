@@ -9,26 +9,27 @@ namespace AuxiAPI.Tests.ServicesTest;
 public class CondominioServiceCacheTest
 {
     [Fact]
-    public async Task ObterPorIdAsync_DeveRetornarDoCache_NaSegundaConsulta()
+    public async Task ObterPorCodCondomAsync_DeveRetornarDoCache_NaSegundaConsulta()
     {
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .SetupSequence(x => x.ObterPorIdAsync(1))
-            .ReturnsAsync(CreateCondominio())
+            .SetupSequence(x => x.ObterPorCodCondomAsync(5396))
+            .ReturnsAsync(CreateAtlasCondominio())
             .ThrowsAsync(new Exception("Repository foi chamado de novo. Cache não funcionou."));
 
         var cacheService = new FakeDatabaseCacheService();
         var service = CriarService(repository.Object, cacheService);
 
-        var primeiraConsulta = await service.ObterPorIdAsync(1);
-        var segundaConsulta = await service.ObterPorIdAsync(1);
+        var primeiraConsulta = await service.ObterPorCodCondomAsync(5396);
+        var segundaConsulta = await service.ObterPorCodCondomAsync(5396);
 
-        repository.Verify(x => x.ObterPorIdAsync(1), Times.Once);
+        repository.Verify(x => x.ObterPorCodCondomAsync(5396), Times.Once);
 
-        Assert.Equal("0001", primeiraConsulta.CodigoDoCondominio);
-        Assert.Equal("0001", segundaConsulta.CodigoDoCondominio);
-        Assert.Equal(primeiraConsulta.NomeDoCondominio, segundaConsulta.NomeDoCondominio);
+        Assert.Equal(5396, primeiraConsulta.CodCondom);
+        Assert.Equal(5396, segundaConsulta.CodCondom);
+        Assert.Equal(primeiraConsulta.NomeCondom, segundaConsulta.NomeCondom);
+        Assert.Equal(primeiraConsulta.Cnpj, segundaConsulta.Cnpj);
     }
 
     [Fact]
@@ -40,9 +41,9 @@ public class CondominioServiceCacheTest
             .Setup(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio>
+            .ReturnsAsync((new List<AtlasCondominio>
             {
-                CreateCondominio("0001", "Residencial Pelé")
+                CreateAtlasCondominio(nome: "Residencial Pelé")
             }, 1));
 
         var cacheService = new FakeDatabaseCacheService();
@@ -50,13 +51,13 @@ public class CondominioServiceCacheTest
 
         var primeiraQuery = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = "pelé",
+            NomeCondom = "pelé",
             Pagina = 1
         };
 
         var segundaQuery = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = "pele",
+            NomeCondom = "pele",
             Pagina = 1
         };
 
@@ -79,9 +80,9 @@ public class CondominioServiceCacheTest
             .SetupSequence(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio>
+            .ReturnsAsync((new List<AtlasCondominio>
             {
-                CreateCondominio()
+                CreateAtlasCondominio()
             }, 1))
             .ThrowsAsync(new Exception("Repository foi chamado de novo. Cache por nome não funcionou."));
 
@@ -90,7 +91,7 @@ public class CondominioServiceCacheTest
 
         var query = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = "residencial"
+            NomeCondom = "residencial"
         };
 
         var primeiraConsulta = await service.ListarCondominiosAsync(query);
@@ -111,8 +112,8 @@ public class CondominioServiceCacheTest
         Assert.Equal(1, primeiraConsulta.TotalPaginas);
 
         Assert.Equal(
-            primeiraConsulta.Itens[0].NomeDoCondominio,
-            segundaConsulta.Itens[0].NomeDoCondominio);
+            primeiraConsulta.Itens[0].NomeCondom,
+            segundaConsulta.Itens[0].NomeCondom);
     }
 
     [Fact]
@@ -124,9 +125,9 @@ public class CondominioServiceCacheTest
             .Setup(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio>
+            .ReturnsAsync((new List<AtlasCondominio>
             {
-                CreateCondominio()
+                CreateAtlasCondominio()
             }, 1));
 
         var cacheService = new FakeDatabaseCacheService();
@@ -134,12 +135,12 @@ public class CondominioServiceCacheTest
 
         var primeiraQuery = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = "Residencial"
+            NomeCondom = "Residencial"
         };
 
         var segundaQuery = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = " RESIDENCIAL "
+            NomeCondom = " RESIDENCIAL "
         };
 
         var primeiraConsulta = await service.ListarCondominiosAsync(primeiraQuery);
@@ -164,13 +165,13 @@ public class CondominioServiceCacheTest
             .SetupSequence(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio>
+            .ReturnsAsync((new List<AtlasCondominio>
             {
-                CreateCondominio("0001", "Residencial Página 1")
+                CreateAtlasCondominio(codCondom: 5396, nome: "Residencial Página 1")
             }, 20))
-            .ReturnsAsync((new List<Condominio>
+            .ReturnsAsync((new List<AtlasCondominio>
             {
-                CreateCondominio("0011", "Residencial Página 2")
+                CreateAtlasCondominio(codCondom: 5400, nome: "Residencial Página 2")
             }, 20));
 
         var cacheService = new FakeDatabaseCacheService();
@@ -178,13 +179,13 @@ public class CondominioServiceCacheTest
 
         var primeiraQuery = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = "residencial",
+            NomeCondom = "residencial",
             Pagina = 1
         };
 
         var segundaQuery = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = "residencial",
+            NomeCondom = "residencial",
             Pagina = 2
         };
 
@@ -200,15 +201,61 @@ public class CondominioServiceCacheTest
         Assert.Equal(1, primeiraConsulta.Pagina);
         Assert.Equal(2, segundaConsulta.Pagina);
 
-        Assert.Equal("0001", primeiraConsulta.Itens[0].CodigoDoCondominio);
-        Assert.Equal("0011", segundaConsulta.Itens[0].CodigoDoCondominio);
+        Assert.Equal(5396, primeiraConsulta.Itens[0].CodCondom);
+        Assert.Equal(5400, segundaConsulta.Itens[0].CodCondom);
 
-        Assert.Equal("Residencial Página 1", primeiraConsulta.Itens[0].NomeDoCondominio);
-        Assert.Equal("Residencial Página 2", segundaConsulta.Itens[0].NomeDoCondominio);
+        Assert.Equal("Residencial Página 1", primeiraConsulta.Itens[0].NomeCondom);
+        Assert.Equal("Residencial Página 2", segundaConsulta.Itens[0].NomeCondom);
     }
 
     [Fact]
-    public async Task ListarCondominiosAsync_NaoDeveUsarCache_QuandoNomeVierComCodigo()
+    public async Task ListarCondominiosAsync_DeveRetornarDoCache_NaSegundaConsultaPorCnpj()
+    {
+        var repository = new Mock<ICondominioRepository>();
+
+        repository
+            .SetupSequence(x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()))
+            .ReturnsAsync((new List<AtlasCondominio>
+            {
+                CreateAtlasCondominio(cnpj: "17474690000113")
+            }, 1))
+            .ThrowsAsync(new Exception("Repository foi chamado de novo. Cache por CNPJ não funcionou."));
+
+        var cacheService = new FakeDatabaseCacheService();
+        var service = CriarService(repository.Object, cacheService);
+
+        var primeiraQuery = new VisualizarCondominioQuery
+        {
+            Cnpj = "17.474.690/0001-13",
+            Pagina = 1
+        };
+
+        var segundaQuery = new VisualizarCondominioQuery
+        {
+            Cnpj = "17474690000113",
+            Pagina = 1
+        };
+
+        var primeiraConsulta = await service.ListarCondominiosAsync(primeiraQuery);
+        var segundaConsulta = await service.ListarCondominiosAsync(segundaQuery);
+
+        repository.Verify(
+            x => x.ListarAsync(
+                It.IsAny<VisualizarCondominioQuery>(),
+                It.IsAny<int>()),
+            Times.Once);
+
+        Assert.Single(primeiraConsulta.Itens);
+        Assert.Single(segundaConsulta.Itens);
+
+        Assert.Equal("17474690000113", primeiraConsulta.Itens[0].Cnpj);
+        Assert.Equal("17474690000113", segundaConsulta.Itens[0].Cnpj);
+    }
+
+    [Fact]
+    public async Task ListarCondominiosAsync_NaoDeveUsarCache_QuandoNomeVierComCnpj()
     {
         var repository = new Mock<ICondominioRepository>();
 
@@ -216,9 +263,9 @@ public class CondominioServiceCacheTest
             .Setup(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio>
+            .ReturnsAsync((new List<AtlasCondominio>
             {
-                CreateCondominio()
+                CreateAtlasCondominio()
             }, 1));
 
         var cacheService = new FakeDatabaseCacheService();
@@ -226,8 +273,8 @@ public class CondominioServiceCacheTest
 
         var query = new VisualizarCondominioQuery
         {
-            NomeDoCondominio = "residencial",
-            CodigoDoCondominio = "0001"
+            NomeCondom = "residencial",
+            Cnpj = "12345678000101"
         };
 
         await service.ListarCondominiosAsync(query);
@@ -244,7 +291,7 @@ public class CondominioServiceCacheTest
     }
 
     [Fact]
-    public async Task ListarCondominiosAsync_NaoDeveUsarCache_QuandoNaoTiverFiltroDeNome()
+    public async Task ListarCondominiosAsync_NaoDeveUsarCache_QuandoNaoTiverFiltro()
     {
         var repository = new Mock<ICondominioRepository>();
 
@@ -252,9 +299,9 @@ public class CondominioServiceCacheTest
             .Setup(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio>
+            .ReturnsAsync((new List<AtlasCondominio>
             {
-                CreateCondominio()
+                CreateAtlasCondominio()
             }, 1));
 
         var cacheService = new FakeDatabaseCacheService();
@@ -276,21 +323,21 @@ public class CondominioServiceCacheTest
     }
 
     [Fact]
-    public async Task ObterPorIdAsync_NaoDeveCachearErro_QuandoIdNaoExistir()
+    public async Task ObterPorCodCondomAsync_NaoDeveCachearErro_QuandoCodCondomNaoExistir()
     {
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .Setup(x => x.ObterPorIdAsync(9999))
-            .ReturnsAsync((Condominio?)null);
+            .Setup(x => x.ObterPorCodCondomAsync(9999))
+            .ReturnsAsync((AtlasCondominio?)null);
 
         var cacheService = new FakeDatabaseCacheService();
         var service = CriarService(repository.Object, cacheService);
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorIdAsync(9999));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorIdAsync(9999));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorCodCondomAsync(9999));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ObterPorCodCondomAsync(9999));
 
-        repository.Verify(x => x.ObterPorIdAsync(9999), Times.Exactly(2));
+        repository.Verify(x => x.ObterPorCodCondomAsync(9999), Times.Exactly(2));
 
         Assert.Equal(2, cacheService.TotalDeBuscas);
         Assert.Equal(0, cacheService.TotalDeSalvamentos);
@@ -303,28 +350,53 @@ public class CondominioServiceCacheTest
         return new CondominioService(repository, cacheService);
     }
 
-    private static Condominio CreateCondominio(
-        string codigo = "0001",
-        string nome = "Residencial Brasil-Hexa")
+    private static AtlasCondominio CreateAtlasCondominio(
+        int codCondom = 5396,
+        string nome = "Residencial Brasil-Hexa",
+        string cnpj = "12345678000101")
     {
-        return new Condominio
+        return new AtlasCondominio
         {
-            CodigoDoCondominio = codigo,
-            CNPJDoCondominio = "12345678000101",
-            NomeDoCondominio = nome,
-            Endereco = "Rua Teste",
-            NumeroDoEndereco = "123",
-            EstadoDoEndereco = "RS",
-            CidadeDoEndereco = "Porto Alegre",
-            BairroDoEndereco = "Centro",
-            CEPDoEndereco = "90000000",
-            NumeroDeTorres = 1,
-            NumeroDeUnidades = 10,
-            Status = "Ativo",
-            DataInicial_Administracao = "01/01/2024",
-            DataFinal_Administracao = string.Empty,
-            NomeGerenteDeContas = "Gerente",
-            NomeSindico = "Síndico"
+            CodCondom = codCondom,
+            NomeCondom = nome,
+            Ativo = "S",
+            Cnpj = cnpj,
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 10,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "Gerente",
+            Filial = "Porto Alegre",
+            Agencia = "Agência Teste",
+            Sindico = "Síndico",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = DateTime.UtcNow,
+            TipoLograd = "Rua",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
     }
 

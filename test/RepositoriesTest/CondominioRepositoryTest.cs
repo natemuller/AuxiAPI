@@ -29,6 +29,9 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
 
         await _context.Database.EnsureDeletedAsync();
         await _context.Database.EnsureCreatedAsync();
+
+        await _context.Database.ExecuteSqlRawAsync("create extension if not exists unaccent;");
+
         _repository = new CondominioRepository(_context);
     }
 
@@ -49,8 +52,8 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
         }
 
         await SeedAsync(
-            CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"),
-            CreateCondominio("0002", "12543867000101", "Residencial Vivendas do Pelé"));
+            CreateAtlasCondominio(5396, "17474690000113", "SOLAR DI TOSCANA"),
+            CreateAtlasCondominio(5400, "12543867000101", "Residencial Vivendas do Pelé"));
 
         var resultado = await _repository.ListarAsync(
             new VisualizarCondominioQuery(),
@@ -62,44 +65,6 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
     }
 
     [Fact]
-    public async Task ListarAsync_DeveFiltrarPorCodigoDoCondominio_ComCodigoSemZeros()
-    {
-        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
-        {
-            return;
-        }
-
-        await SeedAsync(CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
-
-        var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { CodigoDoCondominio = "1" },
-            TamanhoPagina);
-
-        var condominio = Assert.Single(resultado.Itens);
-        Assert.Equal("0001", condominio.CodigoDoCondominio);
-        Assert.Equal(1, resultado.TotalItens);
-    }
-
-    [Fact]
-    public async Task ListarAsync_DeveFiltrarPorCodigoDoCondominio_ComCodigoCompleto()
-    {
-        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
-        {
-            return;
-        }
-
-        await SeedAsync(CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
-
-        var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { CodigoDoCondominio = "0001" },
-            TamanhoPagina);
-
-        var condominio = Assert.Single(resultado.Itens);
-        Assert.Equal("0001", condominio.CodigoDoCondominio);
-        Assert.Equal(1, resultado.TotalItens);
-    }
-
-    [Fact]
     public async Task ListarAsync_DeveFiltrarPorCnpjSemMascara()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
@@ -107,39 +72,83 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
             return;
         }
 
-        await SeedAsync(CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
+        await SeedAsync(CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17474690000113",
+            nome: "SOLAR DI TOSCANA"));
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { CNPJDoCondominio = "12345678000101" },
+            new VisualizarCondominioQuery
+            {
+                Cnpj = "17474690000113"
+            },
             TamanhoPagina);
 
         var condominio = Assert.Single(resultado.Itens);
-        Assert.Equal("12345678000101", condominio.CNPJDoCondominio);
+
+        Assert.Equal(5396, condominio.CodCondom);
+        Assert.Equal("17474690000113", condominio.Cnpj);
         Assert.Equal(1, resultado.TotalItens);
     }
 
     [Fact]
-    public async Task ListarAsync_DeveFiltrarPorCnpjComMascara()
+    public async Task ListarAsync_DeveFiltrarPorCnpjComMascara_QuandoBancoEstiverSemMascara()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
             return;
         }
 
-        await SeedAsync(CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
+        await SeedAsync(CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17474690000113",
+            nome: "SOLAR DI TOSCANA"));
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { CNPJDoCondominio = "12.345.678/0001-01" },
+            new VisualizarCondominioQuery
+            {
+                Cnpj = "17.474.690/0001-13"
+            },
             TamanhoPagina);
 
         var condominio = Assert.Single(resultado.Itens);
-        Assert.Equal("12345678000101", condominio.CNPJDoCondominio);
+
+        Assert.Equal(5396, condominio.CodCondom);
+        Assert.Equal("17474690000113", condominio.Cnpj);
+        Assert.Equal(1, resultado.TotalItens);
+    }
+
+    [Fact]
+    public async Task ListarAsync_DeveFiltrarPorCnpjSemMascara_QuandoBancoEstiverComMascara()
+    {
+        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
+        {
+            return;
+        }
+
+        await SeedAsync(CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17.474.690/0001-13",
+            nome: "SOLAR DI TOSCANA"));
+
+        var resultado = await _repository.ListarAsync(
+            new VisualizarCondominioQuery
+            {
+                Cnpj = "17474690000113"
+            },
+            TamanhoPagina);
+
+        var condominio = Assert.Single(resultado.Itens);
+
+        Assert.Equal(5396, condominio.CodCondom);
+        Assert.Equal("17.474.690/0001-13", condominio.Cnpj);
         Assert.Equal(1, resultado.TotalItens);
     }
 
     [Theory]
-    [InlineData("brasil")]
-    [InlineData("BRASIL")]
+    [InlineData("solar")]
+    [InlineData("SOLAR")]
+    [InlineData("Solar")]
     public async Task ListarAsync_DeveFiltrarPorNomeIgnorandoMaiusculasMinusculas(string nome)
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
@@ -147,19 +156,57 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
             return;
         }
 
-        await SeedAsync(CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"));
+        await SeedAsync(CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17474690000113",
+            nome: "SOLAR DI TOSCANA"));
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { NomeDoCondominio = nome },
+            new VisualizarCondominioQuery
+            {
+                NomeCondom = nome
+            },
             TamanhoPagina);
 
         var condominio = Assert.Single(resultado.Itens);
-        Assert.Equal("Residencial Brasil-Hexa", condominio.NomeDoCondominio);
+
+        Assert.Equal(5396, condominio.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", condominio.NomeCondom);
+        Assert.Equal(1, resultado.TotalItens);
+    }
+
+    [Theory]
+    [InlineData("pele")]
+    [InlineData("PELÉ")]
+    [InlineData("Pelé")]
+    public async Task ListarAsync_DeveFiltrarPorNomeIgnorandoAcentos(string nome)
+    {
+        if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
+        {
+            return;
+        }
+
+        await SeedAsync(CreateAtlasCondominio(
+            codCondom: 5400,
+            cnpj: "12543867000101",
+            nome: "Residencial Vivendas do Pelé"));
+
+        var resultado = await _repository.ListarAsync(
+            new VisualizarCondominioQuery
+            {
+                NomeCondom = nome
+            },
+            TamanhoPagina);
+
+        var condominio = Assert.Single(resultado.Itens);
+
+        Assert.Equal(5400, condominio.CodCondom);
+        Assert.Equal("Residencial Vivendas do Pelé", condominio.NomeCondom);
         Assert.Equal(1, resultado.TotalItens);
     }
 
     [Fact]
-    public async Task ListarAsync_DeveCombinarFiltros_QuandoMaisDeUmFiltroForInformado()
+    public async Task ListarAsync_DeveCombinarFiltros_QuandoCnpjENomeForemInformados()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
@@ -167,20 +214,22 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
         }
 
         await SeedAsync(
-            CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa"),
-            CreateCondominio("0002", "12543867000101", "Residencial Vivendas do Pelé"));
+            CreateAtlasCondominio(5396, "17474690000113", "SOLAR DI TOSCANA"),
+            CreateAtlasCondominio(5400, "12543867000101", "Residencial Vivendas do Pelé"));
 
         var resultado = await _repository.ListarAsync(
             new VisualizarCondominioQuery
             {
-                CodigoDoCondominio = "0001",
-                NomeDoCondominio = "Brasil"
+                Cnpj = "17474690000113",
+                NomeCondom = "solar"
             },
             TamanhoPagina);
 
         var condominio = Assert.Single(resultado.Itens);
-        Assert.Equal("0001", condominio.CodigoDoCondominio);
-        Assert.Equal("Residencial Brasil-Hexa", condominio.NomeDoCondominio);
+
+        Assert.Equal(5396, condominio.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", condominio.NomeCondom);
+        Assert.Equal("17474690000113", condominio.Cnpj);
         Assert.Equal(1, resultado.TotalItens);
     }
 
@@ -193,7 +242,10 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
         }
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { CodigoDoCondominio = "9999" },
+            new VisualizarCondominioQuery
+            {
+                NomeCondom = "condominio inexistente"
+            },
             TamanhoPagina);
 
         Assert.NotNull(resultado.Itens);
@@ -210,19 +262,22 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
         }
 
         var condominios = Enumerable.Range(1, 25)
-            .Select(CreateCondominioComIndice)
+            .Select(CreateAtlasCondominioComIndice)
             .ToArray();
 
         await SeedAsync(condominios);
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { Pagina = 1 },
+            new VisualizarCondominioQuery
+            {
+                Pagina = 1
+            },
             TamanhoPagina);
 
         Assert.Equal(10, resultado.Itens.Count);
         Assert.Equal(25, resultado.TotalItens);
-        Assert.Equal("0001", resultado.Itens.First().CodigoDoCondominio);
-        Assert.Equal("0010", resultado.Itens.Last().CodigoDoCondominio);
+        Assert.Equal(1, resultado.Itens.First().CodCondom);
+        Assert.Equal(10, resultado.Itens.Last().CodCondom);
     }
 
     [Fact]
@@ -234,19 +289,22 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
         }
 
         var condominios = Enumerable.Range(1, 25)
-            .Select(CreateCondominioComIndice)
+            .Select(CreateAtlasCondominioComIndice)
             .ToArray();
 
         await SeedAsync(condominios);
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { Pagina = 2 },
+            new VisualizarCondominioQuery
+            {
+                Pagina = 2
+            },
             TamanhoPagina);
 
         Assert.Equal(10, resultado.Itens.Count);
         Assert.Equal(25, resultado.TotalItens);
-        Assert.Equal("0011", resultado.Itens.First().CodigoDoCondominio);
-        Assert.Equal("0020", resultado.Itens.Last().CodigoDoCondominio);
+        Assert.Equal(11, resultado.Itens.First().CodCondom);
+        Assert.Equal(20, resultado.Itens.Last().CodCondom);
     }
 
     [Fact]
@@ -258,19 +316,22 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
         }
 
         var condominios = Enumerable.Range(1, 25)
-            .Select(CreateCondominioComIndice)
+            .Select(CreateAtlasCondominioComIndice)
             .ToArray();
 
         await SeedAsync(condominios);
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { Pagina = 3 },
+            new VisualizarCondominioQuery
+            {
+                Pagina = 3
+            },
             TamanhoPagina);
 
         Assert.Equal(5, resultado.Itens.Count);
         Assert.Equal(25, resultado.TotalItens);
-        Assert.Equal("0021", resultado.Itens.First().CodigoDoCondominio);
-        Assert.Equal("0025", resultado.Itens.Last().CodigoDoCondominio);
+        Assert.Equal(21, resultado.Itens.First().CodCondom);
+        Assert.Equal(25, resultado.Itens.Last().CodCondom);
     }
 
     [Fact]
@@ -282,13 +343,16 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
         }
 
         var condominios = Enumerable.Range(1, 50)
-            .Select(CreateCondominioComIndice)
+            .Select(CreateAtlasCondominioComIndice)
             .ToArray();
 
         await SeedAsync(condominios);
 
         var resultado = await _repository.ListarAsync(
-            new VisualizarCondominioQuery { Pagina = 6 },
+            new VisualizarCondominioQuery
+            {
+                Pagina = 6
+            },
             TamanhoPagina);
 
         Assert.Empty(resultado.Itens);
@@ -296,70 +360,102 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
     }
 
     [Fact]
-    public async Task ObterPorIdAsync_DeveRetornarCondominio_QuandoIdExistir()
+    public async Task ObterPorCodCondomAsync_DeveRetornarCondominio_QuandoCodCondomExistir()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
             return;
         }
 
-        var condominio = CreateCondominio("0001", "12345678000101", "Residencial Brasil-Hexa");
+        var condominio = CreateAtlasCondominio(
+            codCondom: 5396,
+            cnpj: "17474690000113",
+            nome: "SOLAR DI TOSCANA");
+
         await SeedAsync(condominio);
 
-        var resultado = await _repository.ObterPorIdAsync(condominio.Id);
+        var resultado = await _repository.ObterPorCodCondomAsync(5396);
 
         Assert.NotNull(resultado);
-        Assert.Equal(condominio.Id, resultado!.Id);
-        Assert.Equal("0001", resultado.CodigoDoCondominio);
+        Assert.Equal(5396, resultado!.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", resultado.NomeCondom);
+        Assert.Equal("17474690000113", resultado.Cnpj);
     }
 
     [Fact]
-    public async Task ObterPorIdAsync_DeveRetornarNull_QuandoIdNaoExistir()
+    public async Task ObterPorCodCondomAsync_DeveRetornarNull_QuandoCodCondomNaoExistir()
     {
         if (!string.IsNullOrWhiteSpace(_fixture.SkipReason))
         {
             return;
         }
 
-        var resultado = await _repository.ObterPorIdAsync(9999);
+        var resultado = await _repository.ObterPorCodCondomAsync(9999);
 
         Assert.Null(resultado);
     }
 
-    private async Task SeedAsync(params Condominio[] condominios)
+    private async Task SeedAsync(params AtlasCondominio[] condominios)
     {
-        _context.Condominios.AddRange(condominios);
+        _context.AtlasCondominios.AddRange(condominios);
         await _context.SaveChangesAsync();
     }
 
-    private static Condominio CreateCondominioComIndice(int indice)
+    private static AtlasCondominio CreateAtlasCondominioComIndice(int indice)
     {
-        return CreateCondominio(
-            indice.ToString("D4"),
-            indice.ToString().PadLeft(14, '0'),
-            $"Residencial Teste {indice:D2}");
+        return CreateAtlasCondominio(
+            codCondom: indice,
+            cnpj: indice.ToString().PadLeft(14, '0'),
+            nome: $"Residencial Teste {indice:D2}");
     }
 
-    private static Condominio CreateCondominio(string codigo, string cnpj, string nome)
+    private static AtlasCondominio CreateAtlasCondominio(
+        int codCondom,
+        string cnpj,
+        string nome)
     {
-        return new Condominio
+        return new AtlasCondominio
         {
-            CodigoDoCondominio = codigo,
-            CNPJDoCondominio = cnpj,
-            NomeDoCondominio = nome,
-            Endereco = "Rua Teste",
-            NumeroDoEndereco = "123",
-            EstadoDoEndereco = "RS",
-            CidadeDoEndereco = "Porto Alegre",
-            BairroDoEndereco = "Centro",
-            CEPDoEndereco = "90000000",
-            NumeroDeTorres = 1,
-            NumeroDeUnidades = 10,
-            Status = "Ativo",
-            DataInicial_Administracao = "01/01/2024",
-            DataFinal_Administracao = string.Empty,
-            NomeGerenteDeContas = "Gerente",
-            NomeSindico = "Síndico"
+            CodCondom = codCondom,
+            NomeCondom = nome,
+            Ativo = "S",
+            Cnpj = cnpj,
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 10,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "Gerente",
+            Filial = "Porto Alegre",
+            Agencia = "Agência Teste",
+            Sindico = "Síndico",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = DateTime.UtcNow,
+            TipoLograd = "Rua",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
     }
 }

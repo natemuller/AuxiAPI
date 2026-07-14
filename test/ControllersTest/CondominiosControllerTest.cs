@@ -11,7 +11,7 @@ namespace AuxiAPI.Tests.ControllersTest;
 public class CondominiosControllerTest
 {
     [Fact]
-    public async Task GetAll_DeveRetornarOk_ComListaPaginadaDeCondominios()
+    public async Task GetAll_DeveRetornarOk_ComListaPaginadaDeCondominiosAtlas()
     {
         var repository = new Mock<ICondominioRepository>();
 
@@ -19,7 +19,7 @@ public class CondominiosControllerTest
             .Setup(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio> { CreateCondominio() }, 1));
+            .ReturnsAsync((new List<AtlasCondominio> { CreateAtlasCondominio() }, 1));
 
         var controller = new CondominiosController(CriarService(repository.Object));
 
@@ -28,32 +28,39 @@ public class CondominiosControllerTest
         var okResult = Assert.IsType<OkObjectResult>(resultado);
         Assert.Equal(200, okResult.StatusCode);
 
-        var body = Assert.IsType<ResultadoPaginadoDto<InformacoesCondominioDto>>(okResult.Value);
+        var body = Assert.IsType<ResultadoPaginadoDto<AtlasCondominioDto>>(okResult.Value);
 
         Assert.Equal(1, body.Pagina);
         Assert.Equal(10, body.TamanhoPagina);
         Assert.Equal(1, body.TotalItens);
         Assert.Equal(1, body.TotalPaginas);
-        Assert.Single(body.Itens);
+
+        var item = Assert.Single(body.Itens);
+
+        Assert.Equal(5396, item.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", item.NomeCondom);
+        Assert.Equal("17474690000113", item.Cnpj);
     }
 
     [Fact]
-    public async Task GetById_DeveRetornarOk_QuandoIdExistir()
+    public async Task GetByCodCondom_DeveRetornarOk_QuandoCodCondomExistir()
     {
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .Setup(x => x.ObterPorIdAsync(1))
-            .ReturnsAsync(CreateCondominio());
+            .Setup(x => x.ObterPorCodCondomAsync(5396))
+            .ReturnsAsync(CreateAtlasCondominio());
 
         var controller = new CondominiosController(CriarService(repository.Object));
 
-        var resultado = await controller.GetById(1);
+        var resultado = await controller.GetByCodCondom(5396);
 
         var okResult = Assert.IsType<OkObjectResult>(resultado);
-        var body = Assert.IsType<InformacoesCondominioDto>(okResult.Value);
+        var body = Assert.IsType<AtlasCondominioDto>(okResult.Value);
 
-        Assert.Equal("0001", body.CodigoDoCondominio);
+        Assert.Equal(5396, body.CodCondom);
+        Assert.Equal("SOLAR DI TOSCANA", body.NomeCondom);
+        Assert.Equal("17474690000113", body.Cnpj);
     }
 
     private static CondominioService CriarService(ICondominioRepository repository)
@@ -61,12 +68,12 @@ public class CondominiosControllerTest
         var cacheService = new Mock<IDatabaseCacheService>();
 
         cacheService
-            .Setup(x => x.ObterAsync<InformacoesCondominioDto>(It.IsAny<string>()))
-            .ReturnsAsync((InformacoesCondominioDto?)null);
+            .Setup(x => x.ObterAsync<AtlasCondominioDto>(It.IsAny<string>()))
+            .ReturnsAsync((AtlasCondominioDto?)null);
 
         cacheService
-            .Setup(x => x.ObterAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>(It.IsAny<string>()))
-            .ReturnsAsync((ResultadoPaginadoDto<InformacoesCondominioDto>?)null);
+            .Setup(x => x.ObterAsync<ResultadoPaginadoDto<AtlasCondominioDto>>(It.IsAny<string>()))
+            .ReturnsAsync((ResultadoPaginadoDto<AtlasCondominioDto>?)null);
 
         cacheService
             .Setup(x => x.SalvarAsync(
@@ -75,7 +82,7 @@ public class CondominiosControllerTest
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<int?>(),
-                It.IsAny<InformacoesCondominioDto>(),
+                It.IsAny<AtlasCondominioDto>(),
                 It.IsAny<int>()))
             .Returns(Task.CompletedTask);
 
@@ -86,33 +93,57 @@ public class CondominiosControllerTest
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<int?>(),
-                It.IsAny<ResultadoPaginadoDto<InformacoesCondominioDto>>(),
+                It.IsAny<ResultadoPaginadoDto<AtlasCondominioDto>>(),
                 It.IsAny<int>()))
             .Returns(Task.CompletedTask);
 
         return new CondominioService(repository, cacheService.Object);
     }
 
-    private static Condominio CreateCondominio()
+    private static AtlasCondominio CreateAtlasCondominio()
     {
-        return new Condominio
+        return new AtlasCondominio
         {
-            CodigoDoCondominio = "0001",
-            CNPJDoCondominio = "12345678000101",
-            NomeDoCondominio = "Residencial Brasil-Hexa",
-            Endereco = "Rua Teste",
-            NumeroDoEndereco = "123",
-            EstadoDoEndereco = "RS",
-            CidadeDoEndereco = "Porto Alegre",
-            BairroDoEndereco = "Centro",
-            CEPDoEndereco = "90000000",
-            NumeroDeTorres = 1,
-            NumeroDeUnidades = 10,
-            Status = "Ativo",
-            DataInicial_Administracao = "01/01/2024",
-            DataFinal_Administracao = string.Empty,
-            NomeGerenteDeContas = "Gerente",
-            NomeSindico = "Síndico"
+            CodCondom = 5396,
+            NomeCondom = "SOLAR DI TOSCANA",
+            Ativo = "S",
+            Cnpj = "17474690000113",
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 9,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "GERENTE TESTE",
+            Filial = "PORTO ALEGRE",
+            Agencia = "AGENCIA TESTE",
+            Sindico = "SINDICO TESTE",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = DateTime.UtcNow,
+            TipoLograd = "RUA",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
     }
 }

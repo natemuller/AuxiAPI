@@ -13,14 +13,15 @@ public class CondominioServiceTest
     public async Task ListarCondominiosAsync_DeveChamarRepositoryListarAsync()
     {
         var repository = new Mock<ICondominioRepository>();
-        var condominio = CreateCondominio();
+        var condominio = CreateAtlasCondominio();
         var query = new VisualizarCondominioQuery();
 
         repository
             .Setup(x => x.ListarAsync(query, It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio> { condominio }, 1));
+            .ReturnsAsync((new List<AtlasCondominio> { condominio }, 1));
 
         var service = CriarService(repository.Object);
+
         var resultado = await service.ListarCondominiosAsync(query);
 
         repository.Verify(x => x.ListarAsync(query, 10), Times.Once);
@@ -31,23 +32,25 @@ public class CondominioServiceTest
         Assert.Equal(1, resultado.TotalPaginas);
 
         var dto = Assert.Single(resultado.Itens);
-        Assert.Equal(condominio.CodigoDoCondominio, dto.CodigoDoCondominio);
-        Assert.Equal(condominio.NomeDoCondominio, dto.NomeDoCondominio);
+
+        Assert.Equal(condominio.CodCondom, dto.CodCondom);
+        Assert.Equal(condominio.NomeCondom, dto.NomeCondom);
     }
 
     [Fact]
-    public async Task ListarCondominiosAsync_DeveMapearCondominioParaDtoCorretamente()
+    public async Task ListarCondominiosAsync_DeveMapearAtlasCondominioParaDtoCorretamente()
     {
         var repository = new Mock<ICondominioRepository>();
-        var condominio = CreateCondominio();
+        var condominio = CreateAtlasCondominio();
 
         repository
             .Setup(x => x.ListarAsync(
                 It.IsAny<VisualizarCondominioQuery>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((new List<Condominio> { condominio }, 1));
+            .ReturnsAsync((new List<AtlasCondominio> { condominio }, 1));
 
         var service = CriarService(repository.Object);
+
         var resultado = await service.ListarCondominiosAsync(new VisualizarCondominioQuery());
 
         Assert.Equal(1, resultado.Pagina);
@@ -57,41 +60,46 @@ public class CondominioServiceTest
 
         var dto = Assert.Single(resultado.Itens);
 
-        Assert.Equal(condominio.CodigoDoCondominio, dto.CodigoDoCondominio);
-        Assert.Equal(condominio.CNPJDoCondominio, dto.CNPJDoCondominio);
-        Assert.Equal(condominio.NomeDoCondominio, dto.NomeDoCondominio);
-        Assert.Equal(condominio.Endereco, dto.Endereco);
-        Assert.Equal(condominio.NumeroDoEndereco, dto.NumeroDoEndereco);
-        Assert.Equal(condominio.EstadoDoEndereco, dto.EstadoDoEndereco);
-        Assert.Equal(condominio.CidadeDoEndereco, dto.CidadeDoEndereco);
-        Assert.Equal(condominio.BairroDoEndereco, dto.BairroDoEndereco);
-        Assert.Equal(condominio.CEPDoEndereco, dto.CEPDoEndereco);
-        Assert.Equal(condominio.NumeroDeTorres, dto.NumeroDeTorres);
-        Assert.Equal(condominio.NumeroDeUnidades, dto.NumeroDeUnidades);
-        Assert.Equal(condominio.Status, dto.Status);
-        Assert.Equal(condominio.DataInicial_Administracao, dto.DataInicial_Administracao);
-        Assert.Equal(condominio.DataFinal_Administracao, dto.DataFinal_Administracao);
-        Assert.Equal(condominio.NomeGerenteDeContas, dto.NomeGerenteDeContas);
+        Assert.Equal(condominio.CodCondom, dto.CodCondom);
+        Assert.Equal(condominio.NomeCondom, dto.NomeCondom);
+        Assert.Equal(condominio.Ativo, dto.Ativo);
+        Assert.Equal(condominio.Cnpj, dto.Cnpj);
+        Assert.Equal(condominio.Cei, dto.Cei);
+        Assert.Equal(condominio.InscrMunicip, dto.InscrMunicip);
+        Assert.Equal(condominio.QtdBlocos, dto.QtdBlocos);
+        Assert.Equal(condominio.QtdUnidades, dto.QtdUnidades);
+        Assert.Equal(condominio.TotalFracao, dto.TotalFracao);
+        Assert.Equal(condominio.DiaVencDoc, dto.DiaVencDoc);
+        Assert.Equal(condominio.DataInicioAdm, dto.DataInicioAdm);
+        Assert.Equal(condominio.DataDistrato, dto.DataDistrato);
+        Assert.Equal(condominio.MotivoDistrato, dto.MotivoDistrato);
+        Assert.Equal(condominio.Assessor, dto.Assessor);
+        Assert.Equal(condominio.Filial, dto.Filial);
+        Assert.Equal(condominio.Agencia, dto.Agencia);
+        Assert.Equal(condominio.Sindico, dto.Sindico);
+        Assert.Equal(condominio.SubSindico, dto.SubSindico);
+        Assert.Equal(condominio.Conselheiro, dto.Conselheiro);
+        Assert.Equal(condominio.Gestor, dto.Gestor);
+        Assert.Equal(condominio.ConselhoFiscal, dto.ConselhoFiscal);
+        Assert.Equal(condominio.ConselhoConsultivo, dto.ConselhoConsultivo);
+        Assert.Equal(condominio.ConselhoSuplente, dto.ConselhoSuplente);
+        Assert.Equal(condominio.TipoCondominio, dto.TipoCondominio);
+        Assert.Equal(condominio.TipoCategoria, dto.TipoCategoria);
+        Assert.Equal(condominio.DtAlteracao, dto.DtAlteracao);
+        Assert.Equal(condominio.TipoLograd, dto.TipoLograd);
+        Assert.Equal(condominio.Lograd, dto.Lograd);
+        Assert.Equal(condominio.Numero, dto.Numero);
+        Assert.Equal(condominio.Bairro, dto.Bairro);
+        Assert.Equal(condominio.Cidade, dto.Cidade);
+        Assert.Equal(condominio.Cep8Log, dto.Cep8Log);
+        Assert.Equal(condominio.Uf, dto.Uf);
+        Assert.Equal(condominio.CodPessoaSindico, dto.CodPessoaSindico);
         Assert.Equal(condominio.NomeSindico, dto.NomeSindico);
-    }
-
-    [Fact]
-    public async Task ListarCondominiosAsync_DeveLancarArgumentException_QuandoCodigoExcederLimite()
-    {
-        var repository = new Mock<ICondominioRepository>();
-        var service = CriarService(repository.Object);
-
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            service.ListarCondominiosAsync(new VisualizarCondominioQuery
-            {
-                CodigoDoCondominio = new string('1', 16)
-            }));
-
-        Assert.Equal(MensagensDeErro.CodigoTamanhoExcedido, exception.Message);
-
-        repository.Verify(x => x.ListarAsync(
-            It.IsAny<VisualizarCondominioQuery>(),
-            It.IsAny<int>()), Times.Never);
+        Assert.Equal(condominio.CpfDocnpj, dto.CpfDocnpj);
+        Assert.Equal(condominio.CondGarantido, dto.CondGarantido);
+        Assert.Equal(condominio.TipoConta, dto.TipoConta);
+        Assert.Equal(condominio.ObsCobranca, dto.ObsCobranca);
+        Assert.Equal(condominio.Garantidora, dto.Garantidora);
     }
 
     [Fact]
@@ -103,7 +111,7 @@ public class CondominioServiceTest
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
             service.ListarCondominiosAsync(new VisualizarCondominioQuery
             {
-                CNPJDoCondominio = "12.345.678/9012-3456"
+                Cnpj = "12.345.678/9012-3456"
             }));
 
         Assert.Equal(MensagensDeErro.CnpjTamanhoExcedido, exception.Message);
@@ -122,7 +130,7 @@ public class CondominioServiceTest
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
             service.ListarCondominiosAsync(new VisualizarCondominioQuery
             {
-                NomeDoCondominio = new string('n', 201)
+                NomeCondom = new string('n', 201)
             }));
 
         Assert.Equal(MensagensDeErro.NomeTamanhoExcedido, exception.Message);
@@ -152,42 +160,44 @@ public class CondominioServiceTest
     }
 
     [Fact]
-    public async Task ObterPorIdAsync_DeveRetornarDto_QuandoIdExistir()
+    public async Task ObterPorCodCondomAsync_DeveRetornarDto_QuandoCodCondomExistir()
     {
         var repository = new Mock<ICondominioRepository>();
-        var condominio = CreateCondominio();
+        var condominio = CreateAtlasCondominio();
 
         repository
-            .Setup(x => x.ObterPorIdAsync(1))
+            .Setup(x => x.ObterPorCodCondomAsync(5396))
             .ReturnsAsync(condominio);
 
         var service = CriarService(repository.Object);
-        var resultado = await service.ObterPorIdAsync(1);
+
+        var resultado = await service.ObterPorCodCondomAsync(5396);
 
         Assert.NotNull(resultado);
-        Assert.Equal(condominio.CodigoDoCondominio, resultado.CodigoDoCondominio);
-        Assert.Equal(condominio.NomeDoCondominio, resultado.NomeDoCondominio);
+        Assert.Equal(condominio.CodCondom, resultado.CodCondom);
+        Assert.Equal(condominio.NomeCondom, resultado.NomeCondom);
+        Assert.Equal(condominio.Cnpj, resultado.Cnpj);
 
-        repository.Verify(x => x.ObterPorIdAsync(1), Times.Once);
+        repository.Verify(x => x.ObterPorCodCondomAsync(5396), Times.Once);
     }
 
     [Fact]
-    public async Task ObterPorIdAsync_DeveLancarKeyNotFoundException_QuandoIdNaoExistir()
+    public async Task ObterPorCodCondomAsync_DeveLancarKeyNotFoundException_QuandoCodCondomNaoExistir()
     {
         var repository = new Mock<ICondominioRepository>();
 
         repository
-            .Setup(x => x.ObterPorIdAsync(9999))
-            .ReturnsAsync((Condominio?)null);
+            .Setup(x => x.ObterPorCodCondomAsync(9999))
+            .ReturnsAsync((AtlasCondominio?)null);
 
         var service = CriarService(repository.Object);
 
         var exception = await Assert.ThrowsAsync<KeyNotFoundException>(() =>
-            service.ObterPorIdAsync(9999));
+            service.ObterPorCodCondomAsync(9999));
 
         Assert.Contains("9999", exception.Message);
 
-        repository.Verify(x => x.ObterPorIdAsync(9999), Times.Once);
+        repository.Verify(x => x.ObterPorCodCondomAsync(9999), Times.Once);
     }
 
     private static CondominioService CriarService(ICondominioRepository repository)
@@ -195,12 +205,12 @@ public class CondominioServiceTest
         var cacheService = new Mock<IDatabaseCacheService>();
 
         cacheService
-            .Setup(x => x.ObterAsync<InformacoesCondominioDto>(It.IsAny<string>()))
-            .ReturnsAsync((InformacoesCondominioDto?)null);
+            .Setup(x => x.ObterAsync<AtlasCondominioDto>(It.IsAny<string>()))
+            .ReturnsAsync((AtlasCondominioDto?)null);
 
         cacheService
-            .Setup(x => x.ObterAsync<ResultadoPaginadoDto<InformacoesCondominioDto>>(It.IsAny<string>()))
-            .ReturnsAsync((ResultadoPaginadoDto<InformacoesCondominioDto>?)null);
+            .Setup(x => x.ObterAsync<ResultadoPaginadoDto<AtlasCondominioDto>>(It.IsAny<string>()))
+            .ReturnsAsync((ResultadoPaginadoDto<AtlasCondominioDto>?)null);
 
         cacheService
             .Setup(x => x.SalvarAsync(
@@ -209,7 +219,7 @@ public class CondominioServiceTest
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<int?>(),
-                It.IsAny<InformacoesCondominioDto>(),
+                It.IsAny<AtlasCondominioDto>(),
                 It.IsAny<int>()))
             .Returns(Task.CompletedTask);
 
@@ -220,33 +230,57 @@ public class CondominioServiceTest
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<int?>(),
-                It.IsAny<ResultadoPaginadoDto<InformacoesCondominioDto>>(),
+                It.IsAny<ResultadoPaginadoDto<AtlasCondominioDto>>(),
                 It.IsAny<int>()))
             .Returns(Task.CompletedTask);
 
         return new CondominioService(repository, cacheService.Object);
     }
 
-    private static Condominio CreateCondominio()
+    private static AtlasCondominio CreateAtlasCondominio()
     {
-        return new Condominio
+        return new AtlasCondominio
         {
-            CodigoDoCondominio = "0001",
-            CNPJDoCondominio = "12345678000101",
-            NomeDoCondominio = "Residencial Brasil-Hexa",
-            Endereco = "Rua Teste",
-            NumeroDoEndereco = "123",
-            EstadoDoEndereco = "RS",
-            CidadeDoEndereco = "Porto Alegre",
-            BairroDoEndereco = "Centro",
-            CEPDoEndereco = "90000000",
-            NumeroDeTorres = 1,
-            NumeroDeUnidades = 10,
-            Status = "Ativo",
-            DataInicial_Administracao = "01/01/2024",
-            DataFinal_Administracao = string.Empty,
-            NomeGerenteDeContas = "Gerente",
-            NomeSindico = "Síndico"
+            CodCondom = 5396,
+            NomeCondom = "SOLAR DI TOSCANA",
+            Ativo = "S",
+            Cnpj = "17474690000113",
+            Cei = null,
+            InscrMunicip = null,
+            QtdBlocos = 1,
+            QtdUnidades = 9,
+            TotalFracao = 10000000000,
+            DiaVencDoc = 10,
+            DataInicioAdm = 43399,
+            DataDistrato = null,
+            MotivoDistrato = null,
+            Assessor = "GERENTE TESTE",
+            Filial = "PORTO ALEGRE",
+            Agencia = "AGENCIA TESTE",
+            Sindico = "SINDICO TESTE",
+            SubSindico = null,
+            Conselheiro = null,
+            Gestor = null,
+            ConselhoFiscal = null,
+            ConselhoConsultivo = null,
+            ConselhoSuplente = null,
+            TipoCondominio = "Residencial",
+            TipoCategoria = "Condomínio",
+            DtAlteracao = DateTime.UtcNow,
+            TipoLograd = "RUA",
+            Lograd = "Rua Teste",
+            Numero = "123",
+            Bairro = "Centro",
+            Cidade = "Porto Alegre",
+            Cep8Log = "90000000",
+            Uf = "RS",
+            CodPessoaSindico = "123",
+            NomeSindico = "Síndico Teste",
+            CpfDocnpj = "00000000000",
+            CondGarantido = "N",
+            TipoConta = "Conta Corrente",
+            ObsCobranca = null,
+            Garantidora = null
         };
     }
 }

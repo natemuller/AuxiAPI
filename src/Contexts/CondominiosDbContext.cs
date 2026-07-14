@@ -5,8 +5,10 @@ namespace AuxiAPI.src.Contexts
 {
     public class CondominiosDbContext(DbContextOptions<CondominiosDbContext> options) : DbContext(options)
     {
-        public DbSet<Condominio> Condominios { get; set; }
         public DbSet<CacheEntry> Cache { get; set; }
+        public DbSet<AtlasCondominio> AtlasCondominios { get; set; }
+        public DbSet<AtlasBloco> AtlasBlocos { get; set; }
+        public DbSet<AtlasUnidade> AtlasUnidades { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
