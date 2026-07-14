@@ -4,7 +4,7 @@ API REST em **.NET 10** para consulta de dados do domínio condominial, desenvol
 
 O projeto tem como objetivo praticar a construção de uma API REST aplicando conceitos de HTTP, JSON, autenticação, separação de responsabilidades, acesso a banco de dados, tratamento de erros, cache persistente, documentação e testes automatizados.
 
-Nesta etapa, o foco implementado é o endpoint de **Condomínios**. Os endpoints de **Torres** e **Unidades** ficam como evolução futura.
+Nesta etapa, o foco implementado é o endpoint de **Condomínios**, agora utilizando a estrutura de dados **Atlas** como origem principal. Os endpoints de **Blocos/Torres** e **Unidades** ficam como evolução futura.
 
 ---
 
@@ -14,19 +14,22 @@ Nesta etapa, o foco implementado é o endpoint de **Condomínios**. Os endpoints
 |---|---|
 | Endpoint de Condomínios | Implementado |
 | Listagem paginada | Implementada |
-| Busca por ID | Implementada |
-| Filtros por código, CNPJ e nome | Implementados |
+| Busca por `codcondom` | Implementada |
+| Filtros por CNPJ e nome | Implementados |
+| Estrutura Atlas de Condomínios | Implementada |
+| Estrutura Atlas de Blocos e Unidades | Mapeada para evolução futura |
 | Autenticação JWT | Implementada |
 | Token automático em ambiente Development | Implementado |
 | Injeção automática de Authorization em Development | Implementada |
 | Endpoint `/dev/token` para apoio/debug | Implementado |
 | Tratamento global de erros | Implementado |
 | Cache persistente em PostgreSQL/Supabase | Implementado |
+| Cache por `codcondom`, CNPJ e nome | Implementado |
 | Invalidação automática de cache por trigger | Implementada |
 | Swagger/OpenAPI | Implementado |
 | Página HTML de consulta | Implementada |
-| Testes automatizados | 70 testes passando, sem falhas e sem avisos |
-| Endpoints de Torres e Unidades | Futuro |
+| Testes automatizados | Passando, sem falhas e sem avisos |
+| Endpoints de Blocos/Torres e Unidades | Futuro |
 
 ---
 
@@ -35,10 +38,18 @@ Nesta etapa, o foco implementado é o endpoint de **Condomínios**. Os endpoints
 O desafio propõe o desenvolvimento de endpoints de consulta para mapear o fluxo estrutural de dados do domínio condominial:
 
 1. **Condomínios**
-2. **Torres**
+2. **Blocos/Torres**
 3. **Unidades**
 
 O endpoint de **Condomínios** foi priorizado nesta fase para consolidar a base técnica da API antes da evolução para os demais recursos.
+
+A estrutura atual já considera as tabelas Atlas:
+
+- `atlas_condominios`;
+- `atlas_blocos`;
+- `atlas_unidades`.
+
+Nesta fase, a API expõe dados de `atlas_condominios`. As tabelas de blocos e unidades foram preparadas para evolução futura dos endpoints.
 
 ---
 
@@ -48,21 +59,21 @@ O escopo atual cobre a consulta de condomínios por meio dos endpoints:
 
 ```http
 GET /api/condominios
-GET /api/condominios/{id}
+GET /api/condominios/{codcondom}
 ```
 
 A API permite:
 
 - listar condomínios com paginação;
-- consultar um condomínio por ID;
-- filtrar por código do condomínio;
+- consultar um condomínio por `codcondom`;
 - filtrar por CNPJ com ou sem máscara;
 - filtrar por nome ignorando diferenças de caixa e acentuação;
+- retornar dados no contrato baseado na estrutura Atlas;
 - retornar erros padronizados;
 - proteger os endpoints com JWT;
 - automatizar o token em ambiente de desenvolvimento;
-- cachear consultas por ID e por nome;
-- invalidar cache automaticamente quando a tabela `condominios` é alterada;
+- cachear consultas por `codcondom`, CNPJ e nome;
+- invalidar cache automaticamente quando a tabela `atlas_condominios` é alterada;
 - consultar manualmente os dados por uma página HTML de apoio.
 
 ---
@@ -92,6 +103,11 @@ O AuxiAPI utiliza uma arquitetura baseada em camadas, seguindo princípios de se
 
 ```text
 AuxiAPI/
+├── database/
+│   └── atlas/
+│       ├── csv/          # Arquivos CSV usados para carga das tabelas Atlas
+│       └── sql/          # Scripts SQL de criação, validação e cache Atlas
+│
 ├── src/ (Projeto Web API)
 │   ├── Common/           # Utilitários, mensagens e normalizações compartilhadas
 │   ├── Contexts/         # DbContext, configurações do EF Core e funções PostgreSQL
@@ -119,7 +135,6 @@ AuxiAPI/
 │   ├── DTOsTest/
 │   ├── IntegrationTest/
 │   ├── MiddlewaresTest/
-│   │   └── DevTokenInjectionMiddlewareTest.cs
 │   ├── RepositoriesTest/
 │   ├── ServicesTest/
 │   └── TestInfrastructure/
@@ -148,7 +163,7 @@ No endpoint de Condomínios, o controller disponibiliza:
 
 ```http
 GET /api/condominios
-GET /api/condominios/{id}
+GET /api/condominios/{codcondom}
 ```
 
 O controller não concentra regra de negócio. Ele recebe a requisição, chama o service e retorna a resposta adequada.
@@ -163,7 +178,7 @@ No endpoint de Condomínios, ela é responsável por:
 - aplicar regra de paginação;
 - consultar cache persistente;
 - salvar respostas cacheadas quando aplicável;
-- mapear entidade para DTO;
+- mapear entidade Atlas para DTO;
 - tratar cenário de condomínio não encontrado.
 
 ### Repository
@@ -172,12 +187,17 @@ A camada de repository acessa o banco de dados com Entity Framework Core.
 
 Ela executa:
 
-- busca por ID;
+- busca por `codcondom`;
 - listagem paginada;
-- filtro por código;
 - filtro por CNPJ;
 - filtro por nome;
 - consultas de leitura usando `AsNoTracking()`.
+
+A origem atual dos dados de Condomínios é a tabela:
+
+```text
+public.atlas_condominios
+```
 
 ### Security
 
@@ -197,7 +217,13 @@ Arquivos principais:
 
 Os DTOs definem os contratos de entrada e saída da API.
 
-A API não retorna diretamente a entidade do banco. Isso evita acoplamento entre a estrutura interna da aplicação e o contrato público exposto para o cliente.
+O DTO principal do endpoint de Condomínios é baseado na estrutura Atlas:
+
+```text
+AtlasCondominioDto
+```
+
+A API não retorna diretamente a entidade do banco. Isso permite controlar o contrato público da API, mesmo quando a estrutura interna da aplicação evolui.
 
 ---
 
@@ -214,42 +240,45 @@ Retorna uma lista paginada de condomínios.
 Exemplo:
 
 ```http
-GET /api/condominios?Pagina=1
+GET /api/condominios?pagina=1
 ```
 
-### Buscar condomínio por ID
+### Buscar condomínio por `codcondom`
 
 ```http
-GET /api/condominios/{id}
+GET /api/condominios/{codcondom}
 ```
 
 Exemplo:
 
 ```http
-GET /api/condominios/1
+GET /api/condominios/5396
 ```
 
 ### Filtros disponíveis
 
 | Filtro | Query param | Observação |
 |---|---|---|
-| Código | `CodigoDoCondominio` | Aceita `1` ou `0001` |
-| CNPJ | `CNPJDoCondominio` | Aceita com ou sem máscara |
-| Nome | `NomeDoCondominio` | Ignora caixa e acentuação |
-| Página | `Pagina` | Página mínima: 1 |
+| CNPJ | `cnpj` | Aceita com ou sem máscara |
+| Nome | `nomeCondom` | Ignora caixa e acentuação |
+| Página | `pagina` | Página mínima: 1 |
 
 Exemplos:
 
 ```http
-GET /api/condominios?CodigoDoCondominio=1
-GET /api/condominios?CodigoDoCondominio=0001
-GET /api/condominios?CNPJDoCondominio=12345678000101
-GET /api/condominios?CNPJDoCondominio=12.345.678/0001-01
-GET /api/condominios?NomeDoCondominio=Residencial
-GET /api/condominios?NomeDoCondominio=Residencial&Pagina=2
+GET /api/condominios?cnpj=17474690000113
+GET /api/condominios?cnpj=17.474.690/0001-13
+GET /api/condominios?nomeCondom=solar
+GET /api/condominios?nomeCondom=solar&pagina=2
 ```
 
 O tamanho da página é fixo em **10 itens**.
+
+A busca por código do condomínio não é mais feita por query string. Para consultar um condomínio específico, use a rota:
+
+```http
+GET /api/condominios/{codcondom}
+```
 
 ---
 
@@ -265,47 +294,95 @@ O tamanho da página é fixo em **10 itens**.
   "totalPaginas": 1,
   "itens": [
     {
-      "codigoDoCondominio": "0001",
-      "cnpjDoCondominio": "12345678000101",
-      "nomeDoCondominio": "Residencial Exemplo",
-      "endereco": "Rua Exemplo",
-      "numeroDoEndereco": "123",
-      "estadoDoEndereco": "RS",
-      "cidadeDoEndereco": "Porto Alegre",
-      "bairroDoEndereco": "Centro",
-      "cepDoEndereco": "90000000",
-      "numeroDeTorres": 2,
-      "numeroDeUnidades": 120,
-      "status": "Ativo",
-      "dataInicial_Administracao": "2024-01-01",
-      "dataFinal_Administracao": "",
-      "nomeGerenteDeContas": "Nome do Gerente",
-      "nomeSindico": "Nome do Síndico"
+      "codCondom": 5396,
+      "nomeCondom": "SOLAR DI TOSCANA",
+      "ativo": "S",
+      "cnpj": "17474690000113",
+      "cei": null,
+      "inscrMunicip": null,
+      "qtdBlocos": 1,
+      "qtdUnidades": 9,
+      "totalFracao": 10000000000,
+      "diaVencDoc": 10,
+      "dataInicioAdm": 43399,
+      "dataDistrato": null,
+      "motivoDistrato": null,
+      "assessor": "GERENTE TESTE",
+      "filial": "PORTO ALEGRE",
+      "agencia": "AGENCIA TESTE",
+      "sindico": "SINDICO TESTE",
+      "subSindico": null,
+      "conselheiro": null,
+      "gestor": null,
+      "conselhoFiscal": null,
+      "conselhoConsultivo": null,
+      "conselhoSuplente": null,
+      "tipoCondominio": "Residencial",
+      "tipoCategoria": "Condomínio",
+      "dtAlteracao": "2026-07-14T10:00:00",
+      "tipoLograd": "Rua",
+      "lograd": "Rua Teste",
+      "numero": "123",
+      "bairro": "Centro",
+      "cidade": "Porto Alegre",
+      "cep8Log": "90000000",
+      "uf": "RS",
+      "codPessoaSindico": "123",
+      "nomeSindico": "Síndico Teste",
+      "cpfDocnpj": "00000000000",
+      "condGarantido": "N",
+      "tipoConta": "Conta Corrente",
+      "obsCobranca": null,
+      "garantidora": null
     }
   ]
 }
 ```
 
-### Resposta por ID
+### Resposta por `codcondom`
 
 ```json
 {
-  "codigoDoCondominio": "0001",
-  "cnpjDoCondominio": "12345678000101",
-  "nomeDoCondominio": "Residencial Exemplo",
-  "endereco": "Rua Exemplo",
-  "numeroDoEndereco": "123",
-  "estadoDoEndereco": "RS",
-  "cidadeDoEndereco": "Porto Alegre",
-  "bairroDoEndereco": "Centro",
-  "cepDoEndereco": "90000000",
-  "numeroDeTorres": 2,
-  "numeroDeUnidades": 120,
-  "status": "Ativo",
-  "dataInicial_Administracao": "2024-01-01",
-  "dataFinal_Administracao": "",
-  "nomeGerenteDeContas": "Nome do Gerente",
-  "nomeSindico": "Nome do Síndico"
+  "codCondom": 5396,
+  "nomeCondom": "SOLAR DI TOSCANA",
+  "ativo": "S",
+  "cnpj": "17474690000113",
+  "cei": null,
+  "inscrMunicip": null,
+  "qtdBlocos": 1,
+  "qtdUnidades": 9,
+  "totalFracao": 10000000000,
+  "diaVencDoc": 10,
+  "dataInicioAdm": 43399,
+  "dataDistrato": null,
+  "motivoDistrato": null,
+  "assessor": "GERENTE TESTE",
+  "filial": "PORTO ALEGRE",
+  "agencia": "AGENCIA TESTE",
+  "sindico": "SINDICO TESTE",
+  "subSindico": null,
+  "conselheiro": null,
+  "gestor": null,
+  "conselhoFiscal": null,
+  "conselhoConsultivo": null,
+  "conselhoSuplente": null,
+  "tipoCondominio": "Residencial",
+  "tipoCategoria": "Condomínio",
+  "dtAlteracao": "2026-07-14T10:00:00",
+  "tipoLograd": "Rua",
+  "lograd": "Rua Teste",
+  "numero": "123",
+  "bairro": "Centro",
+  "cidade": "Porto Alegre",
+  "cep8Log": "90000000",
+  "uf": "RS",
+  "codPessoaSindico": "123",
+  "nomeSindico": "Síndico Teste",
+  "cpfDocnpj": "00000000000",
+  "condGarantido": "N",
+  "tipoConta": "Conta Corrente",
+  "obsCobranca": null,
+  "garantidora": null
 }
 ```
 
@@ -406,7 +483,7 @@ Exemplo de erro:
 {
   "sucesso": false,
   "status": 404,
-  "mensagem": "condomínio com id 9999 não foi encontrado.",
+  "mensagem": "condomínio com codcondom 9999 não foi encontrado.",
   "caminho": "/api/condominios/9999"
 }
 ```
@@ -419,14 +496,14 @@ A API utiliza cache persistente em uma tabela `cache` no PostgreSQL/Supabase.
 
 O cache é aplicado em:
 
-- consulta de condomínio por ID;
+- consulta de condomínio por `codcondom`;
+- consulta de condomínios por CNPJ;
 - consulta de condomínios por nome.
 
 Não são cacheadas:
 
-- consultas por código;
-- consultas por CNPJ;
-- filtros combinados com código ou CNPJ;
+- listagens sem filtro;
+- filtros combinados;
 - respostas de erro `400`;
 - respostas de erro `404`.
 
@@ -439,6 +516,16 @@ AND invalidado_em IS NULL
 ```
 
 A expiração padrão é de **15 minutos**.
+
+### Tipos de cache utilizados
+
+| Tipo | Quando ocorre | `entidade` | `entidade_id` |
+|---|---|---|---|
+| `CONDOMINIO_CODCONDOM` | `GET /api/condominios/{codcondom}` | `atlas_condominios` | `codcondom` |
+| `CONDOMINIO_NOME` | `GET /api/condominios?nomeCondom=...` | `atlas_condominios` | `null` |
+| `CONDOMINIO_CNPJ` | `GET /api/condominios?cnpj=...` | `atlas_condominios` | `null` |
+
+Nas consultas por nome e CNPJ, o campo `entidade_id` permanece `null` porque essas consultas usam o fluxo de listagem e podem representar mais de um registro ou uma consulta filtrada, não uma busca direta por chave da entidade.
 
 ### Estrutura da tabela `cache`
 
@@ -462,31 +549,71 @@ A expiração padrão é de **15 minutos**.
 
 A invalidação ocorre por trigger no banco.
 
-Quando a tabela `condominios` sofre `INSERT`, `UPDATE` ou `DELETE`, os caches relacionados são invalidados.
+Quando a tabela `atlas_condominios` sofre `INSERT`, `UPDATE` ou `DELETE`, os caches relacionados são invalidados.
 
 | Operação | Cache invalidado |
 |---|---|
-| `INSERT` | caches por nome |
-| `UPDATE` | cache por ID do condomínio alterado e caches por nome |
-| `DELETE` | cache por ID do condomínio removido e caches por nome |
+| `INSERT` | caches por nome e CNPJ |
+| `UPDATE` | cache por `codcondom` do condomínio alterado e caches por nome e CNPJ |
+| `DELETE` | cache por `codcondom` do condomínio removido e caches por nome e CNPJ |
 
 A trigger preenche os campos `invalidado_em` e `motivo_invalidacao`.
 
+Exemplo de motivo registrado:
+
+```text
+Registro da tabela atlas_condominios alterado
+```
+
 ---
 
-## Banco de dados e migrations
+## Banco de dados e scripts Atlas
 
-As migrations são responsáveis pela estrutura do banco, não pela carga de dados de negócio.
+As migrations são responsáveis pela estrutura base do banco, enquanto os dados de negócio e scripts específicos da carga Atlas ficam separados.
 
-Elas criam:
+A estrutura Atlas utiliza as tabelas:
 
-- tabela `condominios`;
-- tabela `cache`;
-- índices da tabela de cache;
-- extensão/função necessária para busca sem acento;
-- trigger de invalidação automática de cache.
+```text
+public.atlas_condominios
+public.atlas_blocos
+public.atlas_unidades
+```
 
-Os dados de condomínios podem ser importados separadamente, por exemplo via CSV no Supabase. Isso mantém o versionamento da estrutura separado da massa de dados.
+A API de Condomínios utiliza atualmente:
+
+```text
+public.atlas_condominios
+```
+
+Os dados podem ser importados separadamente, por exemplo via CSV no Supabase. Isso mantém o versionamento da estrutura separado da massa de dados.
+
+### Scripts Atlas
+
+Os scripts relacionados à estrutura Atlas ficam em:
+
+```text
+database/atlas/sql/
+```
+
+Eles contemplam:
+
+- criação das tabelas Atlas;
+- validação dos relacionamentos entre condomínios, blocos e unidades;
+- atualização da invalidação de cache para `atlas_condominios`.
+
+### Arquivos CSV
+
+Os arquivos CSV de apoio ficam em:
+
+```text
+database/atlas/csv/
+```
+
+Eles representam a carga de dados utilizada para popular:
+
+- `atlas_condominios`;
+- `atlas_blocos`;
+- `atlas_unidades`.
 
 ---
 
@@ -498,7 +625,7 @@ A tela permite:
 
 - escolher tipo de busca;
 - listar condomínios;
-- buscar por ID, código, CNPJ ou nome;
+- buscar por `codcondom`, CNPJ ou nome;
 - navegar por paginação;
 - expandir uma linha para ver detalhes completos;
 - visualizar o JSON bruto da resposta;
@@ -618,7 +745,29 @@ A partir da raiz do projeto:
 dotnet ef database update --project src/AuxiAPI.WebApi.csproj
 ```
 
-### 6. Compilar e executar
+### 6. Criar estrutura Atlas, se necessário
+
+Quando o ambiente ainda não possuir as tabelas Atlas, execute os scripts SQL em:
+
+```text
+database/atlas/sql/
+```
+
+A ordem esperada é:
+
+```text
+01_create_atlas_tables.sql
+02_validate_atlas_tables.sql
+03_update_cache_invalidation_atlas_condominios.sql
+```
+
+Depois, importe os CSVs necessários em:
+
+```text
+database/atlas/csv/
+```
+
+### 7. Compilar e executar
 
 Fluxo utilizado em desenvolvimento:
 
@@ -658,7 +807,7 @@ Os testes estão organizados por responsabilidade:
 | `ServicesTest` | Regras de service, cache, paginação e validações |
 | `RepositoriesTest` | Consultas, filtros, paginação e cache repository |
 | `IntegrationTest` | Endpoints, autenticação, erros e trigger de cache |
-| `TestInfrastructure` | Base para autenticação fake e PostgreSQL em container |
+| `TestInfrastructure` | Base para autenticação fake e PostgreSQL em container para testes |
 
 Para os testes de integração, mantenha o Docker em execução.
 
@@ -666,35 +815,27 @@ Para os testes de integração, mantenha o Docker em execução.
 
 A suíte cobre os principais comportamentos da API:
 
-- filtros por código, CNPJ e nome;
+- filtros por CNPJ e nome;
 - paginação;
-- busca por ID;
+- busca por `codcondom`;
 - autenticação;
 - tratamento global de erros;
 - cache persistente;
+- cache por `codcondom`, CNPJ e nome;
 - invalidação automática por trigger;
 - repository de cache;
 - service de cache;
 - endpoint de Condomínios;
-- middleware de injeção automática de token em Development.
-
-Classificação funcional da suíte:
-
-| Tipo de teste | Quantidade | O que cobre |
-|---|---:|---|
-| Testes unitários e de componentes isolados | 38 | Services, DTOs, Controllers e Middlewares |
-| Testes de persistência/repository | 19 | Consultas, filtros, paginação e cache repository com PostgreSQL em container |
-| Testes de integração | 13 | Endpoints, autenticação, erros e trigger de cache |
-| **Total** | **70** | Suíte completa validada |
+- middleware de injeção automática de token em Development;
+- contrato Atlas do endpoint de Condomínios.
 
 Resultado da validação atual:
 
 ```text
-70 testes executados
-70 testes passaram
+dotnet build executado com sucesso
+dotnet test executado com sucesso
 0 falhas
-0 ignorados
-Build sem avisos
+0 avisos
 ```
 
 ---
@@ -703,6 +844,7 @@ Build sem avisos
 
 - separação entre Controller, Service e Repository;
 - uso de DTOs para contrato de API;
+- contrato de Condomínios baseado na estrutura Atlas;
 - tratamento global de exceções;
 - validação de entrada;
 - autenticação JWT com validação real do token;
@@ -710,11 +852,11 @@ Build sem avisos
 - credenciais sensíveis configuradas via User Secrets;
 - middleware de desenvolvimento sem sobrescrever `Authorization` manual;
 - endpoint `/dev/token` limitado ao ambiente Development;
-- documentação com Swagger/OpenAPI;
 - consultas de leitura com `AsNoTracking()`;
 - paginação;
 - cache persistente em banco;
 - invalidação automática de cache;
+- scripts SQL separados para estrutura e validação Atlas;
 - migrations sem seed de dados de negócio;
 - testes unitários, de persistência e de integração.
 
@@ -724,27 +866,21 @@ Build sem avisos
 
 | Decisão | Justificativa |
 |---|---|
-| Uso de DTOs | DTOs evitam expor diretamente as entidades do banco e mantêm o contrato da API mais estável. |
+| Uso de DTOs | DTOs evitam expor diretamente as entidades do banco e mantêm o contrato da API controlado pela aplicação. |
+| Contrato baseado na estrutura Atlas | O endpoint de Condomínios passou a expor os principais campos vindos de `atlas_condominios`, alinhando a API à origem real dos dados usada nesta fase. |
 | Separação entre Controller, Service e Repository | A divisão por camadas organiza responsabilidades e facilita manutenção e testes. |
 | Paginação fixa | A paginação evita retornos muito grandes e mantém o comportamento da listagem previsível. |
+| Busca por `codcondom` via rota | A consulta direta de um condomínio usa `/api/condominios/{codcondom}`, deixando filtros de listagem apenas na query string. |
 | Cache persistente | O cache em banco permite reduzir consultas repetidas e facilita visualizar, expirar e invalidar respostas armazenadas. |
-| Invalidação por trigger | A trigger garante que alterações na tabela `condominios` invalidem caches relacionados mesmo fora do fluxo da API. |
-| Migrations sem carga de dados | As migrations versionam a estrutura do banco, enquanto dados de negócio ficam separados da evolução do schema. |
+| Cache por `codcondom`, CNPJ e nome | As consultas mais relevantes do endpoint são cacheadas de forma separada, usando `tipo_consulta` para identificar cada cenário. |
+| `entidade_id` nulo em cache por CNPJ e nome | Essas consultas seguem o fluxo de listagem e não representam uma busca direta por chave única da entidade. |
+| Invalidação por trigger | A trigger garante que alterações na tabela `atlas_condominios` invalidem caches relacionados mesmo fora do fluxo da API. |
+| Scripts Atlas separados | A estrutura e validação das tabelas Atlas ficam documentadas fora da carga de dados de negócio. |
+| Migrations sem carga de dados | As migrations versionam a estrutura base do banco, enquanto dados de negócio ficam separados da evolução do schema. |
 | Autenticação JWT | O JWT protege os endpoints e mantém a validação real de acesso via pipeline da aplicação. |
 | Token automático em Development | A automação reduz retrabalho em testes locais sem remover `[Authorize]` nem desativar a validação JWT. |
 | User Secrets | Credenciais sensíveis ficam fora do repositório e não são expostas no código-fonte. |
 | Testes automatizados | A suíte valida regras, filtros, cache, autenticação, endpoints, erros e persistência antes da entrega. |
-
----
-
-## Próximos passos
-
-- Mapear as tabelas reais que alimentarão o endpoint de Condomínios.
-- Validar se o contrato atual da API será mantido.
-- Confirmar origem real dos dados de síndico.
-- Confirmar se número de torres e unidades virá de coluna ou cálculo.
-- Avaliar impacto de múltiplas tabelas na estratégia de cache.
-- Evoluir futuramente para os endpoints de Torres e Unidades.
 
 ---
 
