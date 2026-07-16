@@ -14,7 +14,6 @@ Nesta etapa, a API utiliza a estrutura de dados **Atlas** como origem principal 
 |---|---|
 | Endpoint de Condomínios | Implementado |
 | Endpoint de Unidades | Implementado |
-| Endpoint de Blocos/Torres | Futuro |
 | Listagem paginada | Implementada |
 | Busca de condomínio por `codcondom` | Implementada |
 | Busca de unidade por `idEconomia` | Implementada |
