@@ -127,7 +127,6 @@ AuxiAPI/
 │   ├── Entities/         # Entidades persistidas no banco
 │   ├── Middlewares/      # Tratamento global de erro e interceptores HTTP
 │   │   └── DevTokenInjectionMiddleware.cs
-│   ├── Migrations/       # Histórico de evolução da estrutura do banco
 │   ├── Repositories/     # Acesso a dados
 │   ├── Security/         # JWT e token automático de desenvolvimento
 │   │   ├── DevTokenOptions.cs
@@ -655,7 +654,9 @@ Registro da tabela atlas_unidades alterado
 
 ## Banco de dados e scripts Atlas
 
-As migrations são responsáveis pela estrutura base do banco, enquanto os dados de negócio e scripts específicos da carga Atlas ficam separados.
+A API consome um banco previamente provisionado e não cria nem atualiza tabelas durante sua inicialização. O schema e os dados são administrados externamente; o Entity Framework Core é utilizado apenas para mapear e consultar as tabelas existentes.
+
+O ambiente deve disponibilizar a tabela `public.cache`, a extensão PostgreSQL `unaccent` e as triggers de invalidação de cache, além das tabelas Atlas.
 
 A estrutura Atlas utiliza as tabelas:
 
@@ -764,13 +765,6 @@ Em outros ambientes, o uso do Bearer Token manual continua necessário.
 - Git
 - Docker, para testes de integração com Testcontainers
 - PostgreSQL ou Supabase
-- Ferramenta `dotnet-ef`
-
-Instale o `dotnet-ef`, se necessário:
-
-```bash
-dotnet tool install --global dotnet-ef
-```
 
 ### 1. Clonar o repositório
 
@@ -824,17 +818,11 @@ O arquivo `appsettings.Development.json` deve conter a configuração do token a
 dotnet restore
 ```
 
-### 5. Aplicar migrations
+### 5. Verificar o banco de dados
 
-A partir da raiz do projeto:
+A API não aplica migrations. Antes de executá-la, confirme que o banco configurado já contém a tabela `public.cache`, a extensão `unaccent`, as triggers de invalidação e as tabelas Atlas necessárias.
 
-```bash
-dotnet ef database update --project src/AuxiAPI.WebApi.csproj
-```
-
-### 6. Criar estrutura Atlas, se necessário
-
-Quando o ambiente ainda não possuir as tabelas Atlas, execute os scripts SQL em:
+Para preparar manualmente as tabelas Atlas em um ambiente local vazio, execute os scripts SQL auxiliares em:
 
 ```text
 database/atlas/sql/
@@ -855,7 +843,7 @@ Depois, importe os CSVs necessários em:
 database/atlas/csv/
 ```
 
-### 7. Compilar e executar
+### 6. Compilar e executar
 
 Fluxo utilizado em desenvolvimento:
 
