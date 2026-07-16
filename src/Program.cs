@@ -29,6 +29,9 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 builder.Services.AddScoped<AuxiAPI.src.Repositories.ICondominioRepository, AuxiAPI.src.Repositories.CondominioRepository>();
 builder.Services.AddScoped<AuxiAPI.src.Repositories.ICacheRepository, AuxiAPI.src.Repositories.CacheRepository>();
 
+builder.Services.AddScoped<AuxiAPI.src.Repositories.IUnidadeRepository, AuxiAPI.src.Repositories.UnidadeRepository>();
+builder.Services.AddScoped<AuxiAPI.src.Services.UnidadeService>();
+
 builder.Services.AddScoped<AuxiAPI.src.Services.IDatabaseCacheService, AuxiAPI.src.Services.DatabaseCacheService>();
 builder.Services.AddScoped<AuxiAPI.src.Services.CondominioService>();
 
