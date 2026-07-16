@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 namespace AuxiAPI.Tests.IntegrationTest;
 
 [Collection(PostgresCollectionNames.PostgresCollection)]
-public class CacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncLifetime
+public class CondominiosCacheInvalidationTriggerTest(PostgresTestFixture fixture) : IAsyncLifetime
 {
     private readonly PostgresTestFixture _fixture = fixture;
     private CondominiosDbContext _context = null!;
