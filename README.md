@@ -4,7 +4,7 @@ API REST em **.NET 10** para consulta de dados do domínio condominial, desenvol
 
 O projeto tem como objetivo praticar a construção de uma API REST aplicando conceitos de HTTP, JSON, autenticação, separação de responsabilidades, acesso a banco de dados, tratamento de erros, cache persistente, documentação e testes automatizados.
 
-Nesta etapa, o foco implementado é o endpoint de **Condomínios**, agora utilizando a estrutura de dados **Atlas** como origem principal. Os endpoints de **Blocos/Torres** e **Unidades** ficam como evolução futura.
+Nesta etapa, a API utiliza a estrutura de dados **Atlas** como origem principal e expõe endpoints para consulta de **Condomínios** e **Unidades**. 
 
 ---
 
@@ -13,21 +13,26 @@ Nesta etapa, o foco implementado é o endpoint de **Condomínios**, agora utiliz
 | Área | Status |
 |---|---|
 | Endpoint de Condomínios | Implementado |
+| Endpoint de Unidades | Implementado |
+| Endpoint de Blocos/Torres | Futuro |
 | Listagem paginada | Implementada |
-| Busca por `codcondom` | Implementada |
-| Filtros por CNPJ e nome | Implementados |
+| Busca de condomínio por `codcondom` | Implementada |
+| Busca de unidade por `idEconomia` | Implementada |
+| Filtros de condomínios por CNPJ e nome | Implementados |
+| Filtros de unidades por `codCondom` e nome do condômino | Implementados |
 | Estrutura Atlas de Condomínios | Implementada |
+| Estrutura Atlas de Unidades | Implementada |
 | Autenticação JWT | Implementada |
 | Token automático em ambiente Development | Implementado |
 | Injeção automática de Authorization em Development | Implementada |
 | Endpoint `/dev/token` para apoio/debug | Implementado |
 | Tratamento global de erros | Implementado |
 | Cache persistente em PostgreSQL/Supabase | Implementado |
-| Cache por `codcondom`, CNPJ e nome | Implementado |
+| Cache de condomínios por `codcondom`, CNPJ e nome | Implementado |
+| Cache de unidades por `idEconomia`, `codCondom` e nome do condômino | Implementado |
 | Invalidação automática de cache por trigger | Implementada |
-| Página HTML de consulta | Implementada |
-| Testes automatizados | Passando, sem falhas e sem avisos |
-| Endpoints de Blocos/Torres e Unidades | Futuro |
+| Página HTML de consulta | Implementada como apoio |
+| Testes automatizados | Implementados e validados |
 
 ---
 
@@ -36,43 +41,52 @@ Nesta etapa, o foco implementado é o endpoint de **Condomínios**, agora utiliz
 O desafio propõe o desenvolvimento de endpoints de consulta para mapear o fluxo estrutural de dados do domínio condominial:
 
 1. **Condomínios**
-2. **Blocos/Torres**
-3. **Unidades**
+2. **Unidades**
 
-O endpoint de **Condomínios** foi priorizado nesta fase para consolidar a base técnica da API antes da evolução para os demais recursos.
+O endpoint de **Condomínios** foi priorizado inicialmente para consolidar a base técnica da API. Em seguida, o endpoint de **Unidades** foi implementado seguindo o mesmo padrão arquitetural, reaproveitando autenticação, cache persistente, tratamento de erros, paginação, repositórios, services, DTOs e testes automatizados.
 
-A estrutura atual já considera as tabelas Atlas:
+A estrutura atual considera as tabelas Atlas:
 
 - `atlas_condominios`;
 - `atlas_blocos`;
 - `atlas_unidades`.
 
-Nesta fase, a API expõe dados de `atlas_condominios`. As tabelas de blocos e unidades foram preparadas para evolução futura dos endpoints.
+Nesta fase, a API expõe dados de:
 
+- `public.atlas_condominios`;
+- `public.atlas_unidades`.
+- 
 ---
 
 ## Escopo atual
 
-O escopo atual cobre a consulta de condomínios por meio dos endpoints:
+O escopo atual cobre consultas de condomínios e unidades por meio dos endpoints:
 
 ```http
 GET /api/condominios
 GET /api/condominios/{codcondom}
+
+GET /api/unidades
+GET /api/unidades/{idEconomia}
 ```
 
 A API permite:
 
 - listar condomínios com paginação;
 - consultar um condomínio por `codcondom`;
-- filtrar por CNPJ com ou sem máscara;
-- filtrar por nome ignorando diferenças de caixa e acentuação;
+- filtrar condomínios por CNPJ com ou sem máscara;
+- filtrar condomínios por nome ignorando diferenças de caixa e acentuação;
+- listar unidades com paginação;
+- consultar uma unidade por `idEconomia`;
+- filtrar unidades por código do condomínio;
+- filtrar unidades por nome do condômino ignorando diferenças de caixa e acentuação;
 - retornar dados no contrato baseado na estrutura Atlas;
 - retornar erros padronizados;
 - proteger os endpoints com JWT;
 - automatizar o token em ambiente de desenvolvimento;
-- cachear consultas por `codcondom`, CNPJ e nome;
-- invalidar cache automaticamente quando a tabela `atlas_condominios` é alterada;
-- consultar manualmente os dados por uma página HTML de apoio.
+- cachear consultas relevantes;
+- invalidar cache automaticamente quando as tabelas Atlas relacionadas são alteradas;
+- validar o comportamento da API por testes unitários, de persistência e de integração.
 
 ---
 
@@ -91,7 +105,7 @@ A API permite:
 - **Moq**
 - **Testcontainers**
 - **Docker**
-- **HTML, CSS e JavaScript** para a página simples de consulta
+- **HTML, CSS e JavaScript** para página simples de apoio à consulta manual
 
 ---
 
@@ -148,6 +162,7 @@ AuxiAPI/
 | Service | Aplica validações, regras de paginação, cache e mapeamento para DTO |
 | Repository | Consulta o banco com Entity Framework Core |
 | DTOs | Definem contratos de entrada e saída da API |
+| Mapper | Converte entidades Atlas para DTOs de resposta |
 | Middleware | Padroniza tratamento de erros e, em Development, injeta token automaticamente em chamadas `/api` |
 | Security | Centraliza autenticação JWT e automação de token em ambiente de desenvolvimento |
 | CacheRepository | Lê e grava registros na tabela de cache |
@@ -157,11 +172,13 @@ AuxiAPI/
 
 A camada de controller expõe os endpoints HTTP da API.
 
-No endpoint de Condomínios, o controller disponibiliza:
+Endpoints disponíveis nesta fase:
 
 ```http
 GET /api/condominios
 GET /api/condominios/{codcondom}
+GET /api/unidades
+GET /api/unidades/{idEconomia}
 ```
 
 O controller não concentra regra de negócio. Ele recebe a requisição, chama o service e retorna a resposta adequada.
@@ -170,20 +187,20 @@ O controller não concentra regra de negócio. Ele recebe a requisição, chama 
 
 A camada de service concentra as regras da aplicação.
 
-No endpoint de Condomínios, ela é responsável por:
+Ela é responsável por:
 
 - validar parâmetros recebidos;
 - aplicar regra de paginação;
 - consultar cache persistente;
 - salvar respostas cacheadas quando aplicável;
-- mapear entidade Atlas para DTO;
-- tratar cenário de condomínio não encontrado.
+- mapear entidades Atlas para DTOs;
+- tratar cenários de recurso não encontrado.
 
 ### Repository
 
 A camada de repository acessa o banco de dados com Entity Framework Core.
 
-Ela executa:
+No endpoint de Condomínios, ela executa:
 
 - busca por `codcondom`;
 - listagem paginada;
@@ -191,10 +208,19 @@ Ela executa:
 - filtro por nome;
 - consultas de leitura usando `AsNoTracking()`.
 
-A origem atual dos dados de Condomínios é a tabela:
+No endpoint de Unidades, ela executa:
+
+- busca por `idEconomia`;
+- listagem paginada;
+- filtro por `codCondom`;
+- filtro por nome do condômino;
+- consultas de leitura usando `AsNoTracking()`.
+
+As origens atuais dos dados são:
 
 ```text
 public.atlas_condominios
+public.atlas_unidades
 ```
 
 ### Security
@@ -215,13 +241,17 @@ Arquivos principais:
 
 Os DTOs definem os contratos de entrada e saída da API.
 
-O DTO principal do endpoint de Condomínios é baseado na estrutura Atlas:
+DTOs principais desta fase:
 
 ```text
 AtlasCondominioDto
+AtlasUnidadeDto
+VisualizarCondominioQuery
+VisualizarUnidadeQuery
+ResultadoPaginadoDto<T>
 ```
 
-A API não retorna diretamente a entidade do banco. Isso permite controlar o contrato público da API, mesmo quando a estrutura interna da aplicação evolui.
+A API não retorna diretamente as entidades do banco. Isso permite controlar o contrato público da API, mesmo quando a estrutura interna da aplicação evolui.
 
 ---
 
@@ -272,7 +302,7 @@ GET /api/condominios?nomeCondom=solar&pagina=2
 
 O tamanho da página é fixo em **10 itens**.
 
-A busca por código do condomínio não é mais feita por query string. Para consultar um condomínio específico, use a rota:
+A busca por código do condomínio não é feita por query string. Para consultar um condomínio específico, use:
 
 ```http
 GET /api/condominios/{codcondom}
@@ -280,9 +310,67 @@ GET /api/condominios/{codcondom}
 
 ---
 
+## Endpoint de Unidades
+
+### Listar unidades
+
+```http
+GET /api/unidades
+```
+
+Retorna uma lista paginada de unidades.
+
+Exemplo:
+
+```http
+GET /api/unidades?pagina=1
+```
+
+### Buscar unidade por `idEconomia`
+
+```http
+GET /api/unidades/{idEconomia}
+```
+
+Exemplo:
+
+```http
+GET /api/unidades/123
+```
+
+### Filtros disponíveis
+
+| Filtro | Query param | Observação |
+|---|---|---|
+| Código do condomínio | `codCondom` | Retorna unidades vinculadas ao condomínio informado |
+| Nome do condômino | `nomeCondomino` | Ignora caixa e acentuação |
+| Página | `pagina` | Página mínima: 1 |
+
+Exemplos:
+
+```http
+GET /api/unidades?codCondom=5396
+GET /api/unidades?nomeCondomino=joao
+GET /api/unidades?nomeCondomino=João
+GET /api/unidades?codCondom=5396&nomeCondomino=joao
+GET /api/unidades?codCondom=5396&pagina=2
+```
+
+O tamanho da página é fixo em **10 itens**.
+
+A busca direta de uma unidade é feita por rota, usando `idEconomia`:
+
+```http
+GET /api/unidades/{idEconomia}
+```
+
+Listagens sem resultado retornam `200 OK` com `itens: []`. A busca direta por `idEconomia` inexistente retorna `404 Not Found`.
+
+---
+
 ## Exemplos de resposta
 
-### Resposta paginada
+### Condomínios - resposta paginada
 
 ```json
 {
@@ -296,48 +384,18 @@ GET /api/condominios/{codcondom}
       "nomeCondom": "SOLAR DI TOSCANA",
       "ativo": "S",
       "cnpj": "17474690000113",
-      "cei": null,
-      "inscrMunicip": null,
       "qtdBlocos": 1,
       "qtdUnidades": 9,
       "totalFracao": 10000000000,
-      "diaVencDoc": 10,
-      "dataInicioAdm": 43399,
-      "dataDistrato": null,
-      "motivoDistrato": null,
-      "assessor": "GERENTE TESTE",
-      "filial": "PORTO ALEGRE",
-      "agencia": "AGENCIA TESTE",
-      "sindico": "SINDICO TESTE",
-      "subSindico": null,
-      "conselheiro": null,
-      "gestor": null,
-      "conselhoFiscal": null,
-      "conselhoConsultivo": null,
-      "conselhoSuplente": null,
-      "tipoCondominio": "Residencial",
-      "tipoCategoria": "Condomínio",
       "dtAlteracao": "2026-07-14T10:00:00",
-      "tipoLograd": "Rua",
-      "lograd": "Rua Teste",
-      "numero": "123",
-      "bairro": "Centro",
       "cidade": "Porto Alegre",
-      "cep8Log": "90000000",
-      "uf": "RS",
-      "codPessoaSindico": "123",
-      "nomeSindico": "Síndico Teste",
-      "cpfDocnpj": "00000000000",
-      "condGarantido": "N",
-      "tipoConta": "Conta Corrente",
-      "obsCobranca": null,
-      "garantidora": null
+      "uf": "RS"
     }
   ]
 }
 ```
 
-### Resposta por `codcondom`
+### Condomínios - resposta por `codcondom`
 
 ```json
 {
@@ -345,42 +403,58 @@ GET /api/condominios/{codcondom}
   "nomeCondom": "SOLAR DI TOSCANA",
   "ativo": "S",
   "cnpj": "17474690000113",
-  "cei": null,
-  "inscrMunicip": null,
   "qtdBlocos": 1,
   "qtdUnidades": 9,
   "totalFracao": 10000000000,
-  "diaVencDoc": 10,
-  "dataInicioAdm": 43399,
-  "dataDistrato": null,
-  "motivoDistrato": null,
-  "assessor": "GERENTE TESTE",
-  "filial": "PORTO ALEGRE",
-  "agencia": "AGENCIA TESTE",
-  "sindico": "SINDICO TESTE",
-  "subSindico": null,
-  "conselheiro": null,
-  "gestor": null,
-  "conselhoFiscal": null,
-  "conselhoConsultivo": null,
-  "conselhoSuplente": null,
-  "tipoCondominio": "Residencial",
-  "tipoCategoria": "Condomínio",
   "dtAlteracao": "2026-07-14T10:00:00",
-  "tipoLograd": "Rua",
-  "lograd": "Rua Teste",
-  "numero": "123",
-  "bairro": "Centro",
   "cidade": "Porto Alegre",
-  "cep8Log": "90000000",
-  "uf": "RS",
-  "codPessoaSindico": "123",
-  "nomeSindico": "Síndico Teste",
-  "cpfDocnpj": "00000000000",
-  "condGarantido": "N",
-  "tipoConta": "Conta Corrente",
-  "obsCobranca": null,
-  "garantidora": null
+  "uf": "RS"
+}
+```
+
+### Unidades - resposta paginada
+
+```json
+{
+  "pagina": 1,
+  "tamanhoPagina": 10,
+  "totalItens": 1,
+  "totalPaginas": 1,
+  "itens": [
+    {
+      "idEconomia": 123,
+      "codCondom": 5396,
+      "codBloco": "A",
+      "codEconom": "101",
+      "fracao": 0.08280000,
+      "ativa": "S",
+      "dataDesativa": "",
+      "dtAlteracao": "2026-07-16T00:00:00",
+      "tipoUnidade": "Apartamento",
+      "codCondomino": "999",
+      "nomeCondomino": "João Silva",
+      "enderecoPrincipal": "Rua Teste, 123"
+    }
+  ]
+}
+```
+
+### Unidades - resposta por `idEconomia`
+
+```json
+{
+  "idEconomia": 123,
+  "codCondom": 5396,
+  "codBloco": "A",
+  "codEconom": "101",
+  "fracao": 0.08280000,
+  "ativa": "S",
+  "dataDesativa": "",
+  "dtAlteracao": "2026-07-16T00:00:00",
+  "tipoUnidade": "Apartamento",
+  "codCondomino": "999",
+  "nomeCondomino": "João Silva",
+  "enderecoPrincipal": "Rua Teste, 123"
 }
 ```
 
@@ -388,7 +462,7 @@ GET /api/condominios/{codcondom}
 
 ## Autenticação
 
-Os endpoints de Condomínios são protegidos por autenticação JWT Bearer.
+Os endpoints da API são protegidos por autenticação JWT Bearer.
 
 Em um fluxo normal de consumo da API, o cliente deve enviar o token no header:
 
@@ -472,7 +546,7 @@ A API usa middleware global para padronizar respostas de erro.
 | `200 OK` | Consulta executada com sucesso |
 | `400 Bad Request` | Parâmetro inválido |
 | `401 Unauthorized` | Token ausente, inválido ou expirado |
-| `404 Not Found` | Condomínio ou rota não encontrada |
+| `404 Not Found` | Recurso ou rota não encontrada |
 | `500 Internal Server Error` | Erro inesperado |
 
 Exemplo de erro:
@@ -481,8 +555,8 @@ Exemplo de erro:
 {
   "sucesso": false,
   "status": 404,
-  "mensagem": "condomínio com codcondom 9999 não foi encontrado.",
-  "caminho": "/api/condominios/9999"
+  "mensagem": "unidade com ideconomia 999999 não foi encontrada.",
+  "caminho": "/api/unidades/999999"
 }
 ```
 
@@ -496,7 +570,10 @@ O cache é aplicado em:
 
 - consulta de condomínio por `codcondom`;
 - consulta de condomínios por CNPJ;
-- consulta de condomínios por nome.
+- consulta de condomínios por nome;
+- consulta de unidade por `idEconomia`;
+- consulta de unidades por `codCondom`;
+- consulta de unidades por nome do condômino.
 
 Não são cacheadas:
 
@@ -522,8 +599,11 @@ A expiração padrão é de **15 minutos**.
 | `CONDOMINIO_CODCONDOM` | `GET /api/condominios/{codcondom}` | `atlas_condominios` | `codcondom` |
 | `CONDOMINIO_NOME` | `GET /api/condominios?nomeCondom=...` | `atlas_condominios` | `null` |
 | `CONDOMINIO_CNPJ` | `GET /api/condominios?cnpj=...` | `atlas_condominios` | `null` |
+| `UNIDADE_IDECONOMIA` | `GET /api/unidades/{idEconomia}` | `atlas_unidades` | `idEconomia` |
+| `UNIDADE_CODCONDOM` | `GET /api/unidades?codCondom=...` | `atlas_unidades` | `null` |
+| `UNIDADE_NOME_CONDOMINO` | `GET /api/unidades?nomeCondomino=...` | `atlas_unidades` | `null` |
 
-Nas consultas por nome e CNPJ, o campo `entidade_id` permanece `null` porque essas consultas usam o fluxo de listagem e podem representar mais de um registro ou uma consulta filtrada, não uma busca direta por chave da entidade.
+Nas consultas por nome, CNPJ e `codCondom`, o campo `entidade_id` permanece `null` porque essas consultas seguem o fluxo de listagem e podem representar mais de um registro ou uma consulta filtrada, não uma busca direta por chave única da entidade.
 
 ### Estrutura da tabela `cache`
 
@@ -545,9 +625,9 @@ Nas consultas por nome e CNPJ, o campo `entidade_id` permanece `null` porque ess
 
 ### Invalidação automática
 
-A invalidação ocorre por trigger no banco.
+A invalidação ocorre por triggers no banco.
 
-Quando a tabela `atlas_condominios` sofre `INSERT`, `UPDATE` ou `DELETE`, os caches relacionados são invalidados.
+Quando `atlas_condominios` sofre `INSERT`, `UPDATE` ou `DELETE`, os caches de condomínios relacionados são invalidados.
 
 | Operação | Cache invalidado |
 |---|---|
@@ -555,12 +635,21 @@ Quando a tabela `atlas_condominios` sofre `INSERT`, `UPDATE` ou `DELETE`, os cac
 | `UPDATE` | cache por `codcondom` do condomínio alterado e caches por nome e CNPJ |
 | `DELETE` | cache por `codcondom` do condomínio removido e caches por nome e CNPJ |
 
-A trigger preenche os campos `invalidado_em` e `motivo_invalidacao`.
+Quando `atlas_unidades` sofre `INSERT`, `UPDATE` ou `DELETE`, os caches de unidades relacionados são invalidados.
 
-Exemplo de motivo registrado:
+| Operação | Cache invalidado |
+|---|---|
+| `INSERT` | caches de listagem por `codCondom` e nome do condômino |
+| `UPDATE` | cache por `idEconomia` da unidade alterada e caches de listagem por `codCondom` e nome do condômino |
+| `DELETE` | cache por `idEconomia` da unidade removida e caches de listagem por `codCondom` e nome do condômino |
+
+As triggers preenchem os campos `invalidado_em` e `motivo_invalidacao`.
+
+Exemplos de motivo registrado:
 
 ```text
 Registro da tabela atlas_condominios alterado
+Registro da tabela atlas_unidades alterado
 ```
 
 ---
@@ -577,10 +666,11 @@ public.atlas_blocos
 public.atlas_unidades
 ```
 
-A API de Condomínios utiliza atualmente:
+A API utiliza atualmente:
 
 ```text
 public.atlas_condominios
+public.atlas_unidades
 ```
 
 Os dados podem ser importados separadamente, por exemplo via CSV no Supabase. Isso mantém o versionamento da estrutura separado da massa de dados.
@@ -597,7 +687,8 @@ Eles contemplam:
 
 - criação das tabelas Atlas;
 - validação dos relacionamentos entre condomínios, blocos e unidades;
-- atualização da invalidação de cache para `atlas_condominios`.
+- atualização da invalidação de cache para `atlas_condominios`;
+- atualização da invalidação de cache para `atlas_unidades`.
 
 ### Arquivos CSV
 
@@ -617,13 +708,12 @@ Eles representam a carga de dados utilizada para popular:
 
 ## Página HTML de consulta
 
-O projeto possui uma página HTML simples para apoiar testes manuais do endpoint de Condomínios.
+O projeto possui uma página HTML simples para apoiar testes manuais da API.
 
 A tela permite:
 
 - escolher tipo de busca;
-- listar condomínios;
-- buscar por `codcondom`, CNPJ ou nome;
+- listar dados disponíveis;
 - navegar por paginação;
 - expandir uma linha para ver detalhes completos;
 - visualizar o JSON bruto da resposta;
@@ -757,6 +847,7 @@ A ordem esperada é:
 01_create_atlas_tables.sql
 02_validate_atlas_tables.sql
 03_update_cache_invalidation_atlas_condominios.sql
+04_update_cache_invalidation_atlas_unidades.sql
 ```
 
 Depois, importe os CSVs necessários em:
@@ -800,11 +891,11 @@ Os testes estão organizados por responsabilidade:
 | Pasta | O que valida |
 |---|---|
 | `ControllersTest` | Comportamento da camada controller |
-| `DTOsTest` | Normalizações e regras dos DTOs |
+| `DTOsTest` | Normalizações, queries e mapeamentos para DTO |
 | `MiddlewaresTest` | Tratamento global de exceções e injeção automática de token em Development |
 | `ServicesTest` | Regras de service, cache, paginação e validações |
 | `RepositoriesTest` | Consultas, filtros, paginação e cache repository |
-| `IntegrationTest` | Endpoints, autenticação, erros e trigger de cache |
+| `IntegrationTest` | Endpoints, autenticação, erros e triggers de cache |
 | `TestInfrastructure` | Base para autenticação fake e PostgreSQL em container para testes |
 
 Para os testes de integração, mantenha o Docker em execução.
@@ -813,72 +904,31 @@ Para os testes de integração, mantenha o Docker em execução.
 
 A suíte cobre os principais comportamentos da API:
 
-- filtros por CNPJ e nome;
+- filtros de condomínios por CNPJ e nome;
+- filtros de unidades por `codCondom` e nome do condômino;
 - paginação;
 - busca por `codcondom`;
+- busca por `idEconomia`;
 - autenticação;
 - tratamento global de erros;
 - cache persistente;
-- cache por `codcondom`, CNPJ e nome;
-- invalidação automática por trigger;
+- cache de condomínios por `codcondom`, CNPJ e nome;
+- cache de unidades por `idEconomia`, `codCondom` e nome do condômino;
+- invalidação automática por trigger em `atlas_condominios`;
+- invalidação automática por trigger em `atlas_unidades`;
 - repository de cache;
 - service de cache;
 - endpoint de Condomínios;
+- endpoint de Unidades;
 - middleware de injeção automática de token em Development;
-- contrato Atlas do endpoint de Condomínios.
+- contrato Atlas dos endpoints implementados.
 
-Resultado da validação atual:
+Resultado esperado da validação:
 
 ```text
-dotnet build executado com sucesso
-dotnet test executado com sucesso
-0 falhas
-0 avisos
+dotnet build
+dotnet test
 ```
-
----
-
-## Boas práticas aplicadas
-
-- separação entre Controller, Service e Repository;
-- uso de DTOs para contrato de API;
-- contrato de Condomínios baseado na estrutura Atlas;
-- tratamento global de exceções;
-- validação de entrada;
-- autenticação JWT com validação real do token;
-- automação de token restrita ao ambiente Development;
-- credenciais sensíveis configuradas via User Secrets;
-- middleware de desenvolvimento sem sobrescrever `Authorization` manual;
-- endpoint `/dev/token` limitado ao ambiente Development;
-- consultas de leitura com `AsNoTracking()`;
-- paginação;
-- cache persistente em banco;
-- invalidação automática de cache;
-- scripts SQL separados para estrutura e validação Atlas;
-- migrations sem seed de dados de negócio;
-- testes unitários, de persistência e de integração.
-
----
-
-## Decisões técnicas
-
-| Decisão | Justificativa |
-|---|---|
-| Uso de DTOs | DTOs evitam expor diretamente as entidades do banco e mantêm o contrato da API controlado pela aplicação. |
-| Contrato baseado na estrutura Atlas | O endpoint de Condomínios passou a expor os principais campos vindos de `atlas_condominios`, alinhando a API à origem real dos dados usada nesta fase. |
-| Separação entre Controller, Service e Repository | A divisão por camadas organiza responsabilidades e facilita manutenção e testes. |
-| Paginação fixa | A paginação evita retornos muito grandes e mantém o comportamento da listagem previsível. |
-| Busca por `codcondom` via rota | A consulta direta de um condomínio usa `/api/condominios/{codcondom}`, deixando filtros de listagem apenas na query string. |
-| Cache persistente | O cache em banco permite reduzir consultas repetidas e facilita visualizar, expirar e invalidar respostas armazenadas. |
-| Cache por `codcondom`, CNPJ e nome | As consultas mais relevantes do endpoint são cacheadas de forma separada, usando `tipo_consulta` para identificar cada cenário. |
-| `entidade_id` nulo em cache por CNPJ e nome | Essas consultas seguem o fluxo de listagem e não representam uma busca direta por chave única da entidade. |
-| Invalidação por trigger | A trigger garante que alterações na tabela `atlas_condominios` invalidem caches relacionados mesmo fora do fluxo da API. |
-| Scripts Atlas separados | A estrutura e validação das tabelas Atlas ficam documentadas fora da carga de dados de negócio. |
-| Migrations sem carga de dados | As migrations versionam a estrutura base do banco, enquanto dados de negócio ficam separados da evolução do schema. |
-| Autenticação JWT | O JWT protege os endpoints e mantém a validação real de acesso via pipeline da aplicação. |
-| Token automático em Development | A automação reduz retrabalho em testes locais sem remover `[Authorize]` nem desativar a validação JWT. |
-| User Secrets | Credenciais sensíveis ficam fora do repositório e não são expostas no código-fonte. |
-| Testes automatizados | A suíte valida regras, filtros, cache, autenticação, endpoints, erros e persistência antes da entrega. |
 
 ---
 
