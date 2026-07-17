@@ -30,7 +30,6 @@ Nesta etapa, a API utiliza a estrutura de dados **Atlas** como origem principal 
 | Cache de condomínios por `codcondom`, CNPJ e nome | Implementado |
 | Cache de unidades por `idEconomia`, `codCondom` e nome do condômino | Implementado |
 | Invalidação automática de cache por trigger | Implementada |
-| Página HTML de consulta | Implementada como apoio |
 | Testes automatizados | Implementados e validados |
 
 ---
@@ -127,7 +126,6 @@ AuxiAPI/
 │   ├── Entities/         # Entidades persistidas no banco
 │   ├── Middlewares/      # Tratamento global de erro e interceptores HTTP
 │   │   └── DevTokenInjectionMiddleware.cs
-│   ├── Migrations/       # Histórico de evolução da estrutura do banco
 │   ├── Repositories/     # Acesso a dados
 │   ├── Security/         # JWT e token automático de desenvolvimento
 │   │   ├── DevTokenOptions.cs
@@ -136,7 +134,6 @@ AuxiAPI/
 │   │   ├── SupabaseDevTokenService.cs
 │   │   └── DevTokenStartupService.cs
 │   ├── Services/         # Regras da aplicação
-│   ├── wwwroot/          # Página HTML de apoio
 │   ├── appsettings.json
 │   ├── appsettings.Development.json
 │   └── Program.cs
@@ -493,7 +490,7 @@ Quando a API inicia em modo de desenvolvimento:
 4. o token pode ser visualizado pelo terminal ou pelo endpoint `/dev/token`;
 5. o `DevTokenInjectionMiddleware` injeta automaticamente o header `Authorization` em requisições para `/api` que chegam sem token.
 
-Com isso, em ambiente local, é possível testar endpoints protegidos pelo Postman, Swagger ou página HTML sem copiar e colar manualmente o Bearer Token.
+Com isso, em ambiente local, é possível testar endpoints protegidos pelo Postman ou Swagger sem copiar e colar manualmente o Bearer Token.
 
 Essa automação não remove a segurança da API. O `[Authorize]` continua ativo e o JWT continua sendo validado normalmente. A diferença é que, em `Development`, a própria API preenche o header `Authorization` antes da validação.
 
@@ -655,7 +652,9 @@ Registro da tabela atlas_unidades alterado
 
 ## Banco de dados e scripts Atlas
 
-As migrations são responsáveis pela estrutura base do banco, enquanto os dados de negócio e scripts específicos da carga Atlas ficam separados.
+A API consome um banco previamente provisionado e não cria nem atualiza tabelas durante sua inicialização. O schema e os dados são administrados externamente; o Entity Framework Core é utilizado apenas para mapear e consultar as tabelas existentes.
+
+O ambiente deve disponibilizar a tabela `public.cache`, a extensão PostgreSQL `unaccent` e as triggers de invalidação de cache, além das tabelas Atlas.
 
 A estrutura Atlas utiliza as tabelas:
 
@@ -705,28 +704,6 @@ Eles representam a carga de dados utilizada para popular:
 
 ---
 
-## Página HTML de consulta
-
-O projeto possui uma página HTML simples para apoiar testes manuais da API.
-
-A tela permite:
-
-- escolher tipo de busca;
-- listar dados disponíveis;
-- navegar por paginação;
-- expandir uma linha para ver detalhes completos;
-- visualizar o JSON bruto da resposta;
-- alternar modo escuro/claro;
-- visualizar ou informar token manualmente, quando necessário.
-
-Em ambiente `Development`, não é necessário preencher manualmente o token para consultar a API, pois o `DevTokenInjectionMiddleware` injeta automaticamente o header `Authorization` nas chamadas para `/api`.
-
-O campo de token foi mantido como apoio visual e para cenários manuais de teste, mas não é obrigatório no fluxo local de desenvolvimento.
-
-Essa página é apenas uma ferramenta de apoio para consulta e validação manual. A lógica principal continua na API.
-
----
-
 ## Swagger
 
 Com a API em execução, acesse:
@@ -764,13 +741,8 @@ Em outros ambientes, o uso do Bearer Token manual continua necessário.
 - Git
 - Docker, para testes de integração com Testcontainers
 - PostgreSQL ou Supabase
-- Ferramenta `dotnet-ef`
 
-Instale o `dotnet-ef`, se necessário:
-
-```bash
-dotnet tool install --global dotnet-ef
-```
+O Docker deve estar em execução ao rodar a suíte completa. Se o PostgreSQL do Testcontainers não puder ser iniciado, os testes de integração falham explicitamente; eles não são contabilizados como aprovados sem execução.
 
 ### 1. Clonar o repositório
 
@@ -824,17 +796,11 @@ O arquivo `appsettings.Development.json` deve conter a configuração do token a
 dotnet restore
 ```
 
-### 5. Aplicar migrations
+### 5. Verificar o banco de dados
 
-A partir da raiz do projeto:
+A API não aplica migrations. Antes de executá-la, confirme que o banco configurado já contém a tabela `public.cache`, a extensão `unaccent`, as triggers de invalidação e as tabelas Atlas necessárias.
 
-```bash
-dotnet ef database update --project src/AuxiAPI.WebApi.csproj
-```
-
-### 6. Criar estrutura Atlas, se necessário
-
-Quando o ambiente ainda não possuir as tabelas Atlas, execute os scripts SQL em:
+Para preparar manualmente as tabelas Atlas em um ambiente local vazio, execute os scripts SQL auxiliares em:
 
 ```text
 database/atlas/sql/
@@ -855,7 +821,7 @@ Depois, importe os CSVs necessários em:
 database/atlas/csv/
 ```
 
-### 7. Compilar e executar
+### 6. Compilar e executar
 
 Fluxo utilizado em desenvolvimento:
 

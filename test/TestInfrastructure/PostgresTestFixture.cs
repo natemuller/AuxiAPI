@@ -28,6 +28,11 @@ public sealed class PostgresTestFixture : IAsyncLifetime
         catch (Exception ex)
         {
             SkipReason = $"PostgreSQL Testcontainers não está disponível: {ex.Message}";
+
+            throw new InvalidOperationException(
+                "Não foi possível iniciar o PostgreSQL usado pelos testes de integração. " +
+                "Verifique se o Docker está instalado e em execução.",
+                ex);
         }
     }
 

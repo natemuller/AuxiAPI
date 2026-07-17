@@ -174,7 +174,6 @@ public class UnidadesAuthorizationEndpointTest(
 
         var context = scope.ServiceProvider.GetRequiredService<CondominiosDbContext>();
 
-        await context.Database.EnsureDeletedAsync();
         await context.Database.EnsureCreatedAsync();
 
         await context.Database.ExecuteSqlRawAsync("create extension if not exists unaccent;");

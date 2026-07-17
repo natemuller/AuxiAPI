@@ -36,7 +36,8 @@ public class AtlasUnidadeConfiguration : IEntityTypeConfiguration<AtlasUnidade>
             .HasColumnType("numeric(18, 2)");
 
         builder.Property(u => u.DtAlteracao)
-            .HasColumnName("dtalteracao");
+            .HasColumnName("dtalteracao")
+            .HasColumnType("timestamp without time zone");
 
         builder.Property(u => u.TipoUnidade)
             .HasColumnName("tipo_unidade");
