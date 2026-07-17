@@ -130,12 +130,16 @@ public class CondominiosAuthorizationEndpointTest(PostgresTestFixture fixture, I
 
         var context = scope.ServiceProvider.GetRequiredService<CondominiosDbContext>();
 
-        await context.Database.EnsureDeletedAsync();
         await context.Database.EnsureCreatedAsync();
 
         await context.Database.ExecuteSqlRawAsync("create extension if not exists unaccent;");
 
         context.Cache.RemoveRange(context.Cache);
+        context.AtlasUnidades.RemoveRange(context.AtlasUnidades);
+        context.AtlasBlocos.RemoveRange(context.AtlasBlocos);
+
+        await context.SaveChangesAsync();
+
         context.AtlasCondominios.RemoveRange(context.AtlasCondominios);
 
         await context.SaveChangesAsync();

@@ -89,7 +89,8 @@ public class AtlasCondominioConfiguration : IEntityTypeConfiguration<AtlasCondom
             .HasColumnName("tipocategoria");
 
         builder.Property(c => c.DtAlteracao)
-            .HasColumnName("dtalteracao");
+            .HasColumnName("dtalteracao")
+            .HasColumnType("timestamp without time zone");
 
         builder.Property(c => c.TipoLograd)
             .HasColumnName("tipolograd");

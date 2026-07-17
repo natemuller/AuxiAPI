@@ -441,7 +441,7 @@ public class CondominioRepositoryTest(PostgresTestFixture fixture) : IAsyncLifet
             ConselhoSuplente = null,
             TipoCondominio = "Residencial",
             TipoCategoria = "Condomínio",
-            DtAlteracao = DateTime.UtcNow,
+            DtAlteracao = new DateTime(2026, 7, 14, 10, 0, 0),
             TipoLograd = "Rua",
             Lograd = "Rua Teste",
             Numero = "123",

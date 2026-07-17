@@ -30,7 +30,6 @@ Nesta etapa, a API utiliza a estrutura de dados **Atlas** como origem principal 
 | Cache de condomínios por `codcondom`, CNPJ e nome | Implementado |
 | Cache de unidades por `idEconomia`, `codCondom` e nome do condômino | Implementado |
 | Invalidação automática de cache por trigger | Implementada |
-| Página HTML de consulta | Implementada como apoio |
 | Testes automatizados | Implementados e validados |
 
 ---
@@ -135,7 +134,6 @@ AuxiAPI/
 │   │   ├── SupabaseDevTokenService.cs
 │   │   └── DevTokenStartupService.cs
 │   ├── Services/         # Regras da aplicação
-│   ├── wwwroot/          # Página HTML de apoio
 │   ├── appsettings.json
 │   ├── appsettings.Development.json
 │   └── Program.cs
@@ -492,7 +490,7 @@ Quando a API inicia em modo de desenvolvimento:
 4. o token pode ser visualizado pelo terminal ou pelo endpoint `/dev/token`;
 5. o `DevTokenInjectionMiddleware` injeta automaticamente o header `Authorization` em requisições para `/api` que chegam sem token.
 
-Com isso, em ambiente local, é possível testar endpoints protegidos pelo Postman, Swagger ou página HTML sem copiar e colar manualmente o Bearer Token.
+Com isso, em ambiente local, é possível testar endpoints protegidos pelo Postman ou Swagger sem copiar e colar manualmente o Bearer Token.
 
 Essa automação não remove a segurança da API. O `[Authorize]` continua ativo e o JWT continua sendo validado normalmente. A diferença é que, em `Development`, a própria API preenche o header `Authorization` antes da validação.
 
@@ -706,28 +704,6 @@ Eles representam a carga de dados utilizada para popular:
 
 ---
 
-## Página HTML de consulta
-
-O projeto possui uma página HTML simples para apoiar testes manuais da API.
-
-A tela permite:
-
-- escolher tipo de busca;
-- listar dados disponíveis;
-- navegar por paginação;
-- expandir uma linha para ver detalhes completos;
-- visualizar o JSON bruto da resposta;
-- alternar modo escuro/claro;
-- visualizar ou informar token manualmente, quando necessário.
-
-Em ambiente `Development`, não é necessário preencher manualmente o token para consultar a API, pois o `DevTokenInjectionMiddleware` injeta automaticamente o header `Authorization` nas chamadas para `/api`.
-
-O campo de token foi mantido como apoio visual e para cenários manuais de teste, mas não é obrigatório no fluxo local de desenvolvimento.
-
-Essa página é apenas uma ferramenta de apoio para consulta e validação manual. A lógica principal continua na API.
-
----
-
 ## Swagger
 
 Com a API em execução, acesse:
@@ -765,6 +741,8 @@ Em outros ambientes, o uso do Bearer Token manual continua necessário.
 - Git
 - Docker, para testes de integração com Testcontainers
 - PostgreSQL ou Supabase
+
+O Docker deve estar em execução ao rodar a suíte completa. Se o PostgreSQL do Testcontainers não puder ser iniciado, os testes de integração falham explicitamente; eles não são contabilizados como aprovados sem execução.
 
 ### 1. Clonar o repositório
 

@@ -259,7 +259,6 @@ public class UnidadesEndpointTest(PostgresTestFixture fixture) : IClassFixture<W
 
         var context = scope.ServiceProvider.GetRequiredService<CondominiosDbContext>();
 
-        await context.Database.EnsureDeletedAsync();
         await context.Database.EnsureCreatedAsync();
 
         await context.Database.ExecuteSqlRawAsync("create extension if not exists unaccent;");

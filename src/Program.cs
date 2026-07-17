@@ -147,8 +147,6 @@ app.UseStatusCodePages(async context =>
     }
 });
 
-app.UseStaticFiles();
-
 app.UseHttpsRedirection();
 
 app.UseRouting();
